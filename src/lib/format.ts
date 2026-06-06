@@ -1,12 +1,14 @@
 import type { AnalysisResult } from "./analyzer";
 import { buildAppointmentReadinessPack } from "./appointmentReadiness";
 import type { LetterComparisonResult } from "./letterComparison";
+import type { PrescriptionAdminHelperResult } from "./prescriptionAdmin";
 import type { TranslationResponse } from "./translationSchema";
 
 export function formatAnalysisAsText(
   result: AnalysisResult | null,
   translation?: TranslationResponse | null,
   comparison?: LetterComparisonResult | null,
+  prescription?: PrescriptionAdminHelperResult | null,
 ): string {
   const readinessPack = result ? buildAppointmentReadinessPack(result) : null;
   const lines = result
@@ -128,6 +130,32 @@ export function formatAnalysisAsText(
       "",
       "Comparison safety",
       comparison.safetyNotice,
+    );
+  }
+
+  if (prescription) {
+    lines.push(
+      "",
+      "Prescription admin helper",
+      `Generated: ${new Date(prescription.generatedAt).toLocaleString()}`,
+      `Confidence: ${prescription.confidence}`,
+      "",
+      "Summary",
+      prescription.summary,
+      "",
+      "Prescription admin details",
+      ...prescription.adminDetails.map(
+        (detail) => `- ${detail.label}: ${detail.value}${detail.needsCheck ? " (check)" : ""}`,
+      ),
+      "",
+      "Admin next steps",
+      ...prescription.nextSteps.map((step) => `- ${step}`),
+      "",
+      "Details to confirm",
+      ...prescription.detailsToConfirm.map((item) => `- ${item}`),
+      "",
+      "Prescription admin safety",
+      prescription.safetyNotice,
     );
   }
 

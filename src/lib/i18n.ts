@@ -63,6 +63,79 @@ const DEFAULT_COMPARISON_COPY: ComparisonCopy = {
   unavailable: "Letter comparison is unavailable right now.",
 };
 
+type AccessibilityCopy = {
+  toggleOn: string;
+  toggleOff: string;
+  modeOn: string;
+  description: string;
+  readPage: string;
+  stopReading: string;
+  turnOff: string;
+  readUnavailable: string;
+  readStarted: string;
+  readStopped: string;
+  enabled: string;
+  disabled: string;
+};
+
+const DEFAULT_ACCESSIBILITY_COPY: AccessibilityCopy = {
+  toggleOn: "Turn on Accessibility Mode",
+  toggleOff: "Turn off Accessibility Mode",
+  modeOn: "Accessibility Mode is on",
+  description: "Large text, high contrast, easy-read spacing and read-aloud support are active.",
+  readPage: "Read page",
+  stopReading: "Stop reading",
+  turnOff: "Turn off",
+  readUnavailable: "Read aloud is not available in this browser.",
+  readStarted: "Read aloud started.",
+  readStopped: "Read aloud stopped.",
+  enabled: "Accessibility Mode is on.",
+  disabled: "Accessibility Mode is off.",
+};
+
+type PrescriptionCopy = {
+  heading: string;
+  intro: string;
+  label: string;
+  placeholder: string;
+  helper: string;
+  checkButton: string;
+  clearButton: string;
+  needText: string;
+  ready: string;
+  resultHeading: string;
+  resultReady: string;
+  adminDetails: string;
+  adminDetailsPowered: string;
+  nextSteps: string;
+  nextStepsPowered: string;
+  detailsToConfirm: string;
+  detailsToConfirmPowered: string;
+  safetyNotice: string;
+  confidenceLabel: (value: "high" | "medium" | "low") => string;
+};
+
+const DEFAULT_PRESCRIPTION_COPY: Omit<PrescriptionCopy, "confidenceLabel"> = {
+  heading: "Prescription Admin Helper",
+  intro: "Check prescription collection wording for admin details only.",
+  label: "Prescription admin text",
+  placeholder: "Paste prescription collection wording, pharmacy notice or GP prescription admin message.",
+  helper: "This helper explains collection/admin steps only. It does not check medicine safety, doses or treatment.",
+  checkButton: "Check prescription admin",
+  clearButton: "Clear prescription helper",
+  needText: "Paste prescription admin text or use the main pasted paperwork before checking.",
+  ready: "Prescription admin helper is ready.",
+  resultHeading: "Prescription Admin Helper",
+  resultReady: "Prescription admin summary ready",
+  adminDetails: "Prescription admin details",
+  adminDetailsPowered: "Admin-only information extraction",
+  nextSteps: "Admin next steps",
+  nextStepsPowered: "Safe prescription admin checklist",
+  detailsToConfirm: "Details to confirm",
+  detailsToConfirmPowered: "Missing or unclear prescription admin details",
+  safetyNotice: "Prescription admin safety notice",
+};
+
 type CopySource = {
   subtitle: string;
   languageLabel: string;
@@ -192,6 +265,8 @@ type CopySource = {
   languageChanged: string;
   removeFilePrefix: string;
   comparison?: Partial<ComparisonCopy>;
+  accessibility?: Partial<AccessibilityCopy>;
+  prescription?: Partial<Omit<PrescriptionCopy, "confidenceLabel">>;
 };
 
 const APP_LANGUAGE_META: Record<AppLanguage, { label: string; code: string; direction: LanguageDirection }> = {
@@ -301,6 +376,16 @@ function createCopy(source: CopySource) {
     comparison: {
       ...DEFAULT_COMPARISON_COPY,
       ...source.comparison,
+    },
+    accessibility: {
+      ...DEFAULT_ACCESSIBILITY_COPY,
+      ...source.accessibility,
+    },
+    prescription: {
+      ...DEFAULT_PRESCRIPTION_COPY,
+      ...source.prescription,
+      confidenceLabel: (value: "high" | "medium" | "low") =>
+        `${source[value]} ${source.confidence}`.trim(),
     },
     dashboard: {
       appointmentReadinessPack:

@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Database,
+  Eye,
   FileCheck2,
   FileText,
   GitCompareArrows,
@@ -9,16 +10,20 @@ import {
   Languages,
   LockKeyhole,
   Loader2,
+  Pill,
   ShieldCheck,
   Sparkles,
   Trash2,
   UploadCloud,
   UserRoundCheck,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { LetterComparisonDashboard } from "./components/LetterComparisonDashboard";
 import { ExportButtons, PatientDashboard } from "./components/PatientDashboard";
+import { PrescriptionAdminDashboard } from "./components/PrescriptionAdminDashboard";
 import { ProductChatWidget } from "./components/ProductChatWidget";
 import { requestAnalysis, type AnalysisResult } from "./lib/analyzer";
 import type { AIAnalysisAttachment } from "./lib/analysisSchema";
@@ -37,6 +42,7 @@ import {
   type AppLanguage,
 } from "./lib/i18n";
 import { buildLetterComparison, type LetterComparisonResult } from "./lib/letterComparison";
+import { buildPrescriptionAdminHelper, type PrescriptionAdminHelperResult } from "./lib/prescriptionAdmin";
 import { requestProductChatAnswer } from "./lib/productChat";
 import type { ProductChatMessage } from "./lib/productChatSchema";
 import { requestSentenceExplanation } from "./lib/sentenceExplainer";
@@ -60,9 +66,93 @@ interface AttachedFile {
 
 const MAX_ATTACHMENTS = 4;
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+const ACCESSIBILITY_MODE_STORAGE_KEY = "careclarity.accessibilityMode";
+
+function readStoredAppLanguage(): AppLanguage {
+  const storedLanguage = window.localStorage.getItem(APP_LANGUAGE_STORAGE_KEY);
+  return isAppLanguage(storedLanguage) ? storedLanguage : DEFAULT_APP_LANGUAGE;
+}
+
+function readStoredAccessibilityMode(): boolean {
+  return window.localStorage.getItem(ACCESSIBILITY_MODE_STORAGE_KEY) === "true";
+}
+
+function stopSpeechSynthesis() {
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.cancel();
+  }
+}
+
+function buildReadAloudText({
+  copy,
+  result,
+  translationResult,
+  comparisonResult,
+  prescriptionResult,
+}: {
+  copy: AppCopy;
+  result: AnalysisResult | null;
+  translationResult: TranslationResponse | null;
+  comparisonResult: LetterComparisonResult | null;
+  prescriptionResult: PrescriptionAdminHelperResult | null;
+}): string {
+  const lines = [
+    "CareClarity.",
+    `${copy.safetyBanner.label} ${copy.safetyBanner.text}`,
+  ];
+
+  if (prescriptionResult) {
+    lines.push(
+      copy.prescription.resultHeading,
+      prescriptionResult.summary,
+      copy.prescription.nextSteps,
+      ...prescriptionResult.nextSteps,
+      copy.prescription.detailsToConfirm,
+      ...prescriptionResult.detailsToConfirm,
+      prescriptionResult.safetyNotice,
+    );
+  } else if (comparisonResult) {
+    lines.push(
+      copy.comparison.resultHeading,
+      comparisonResult.summary,
+      copy.comparison.detailsToCheck,
+      ...comparisonResult.detailsToCheck,
+      comparisonResult.safetyNotice,
+    );
+  } else if (result) {
+    lines.push(
+      copy.results.heading,
+      result.patientDashboardSummary,
+      result.plainEnglishTranslation,
+      copy.dashboard.actionChecklist,
+      ...result.actionChecklist.map((item) => item.task),
+      copy.dashboard.thingsToVerify,
+      ...result.missingOrUncertainInformation,
+      result.safetyValidation.safetyNotice,
+    );
+  } else if (translationResult) {
+    lines.push(
+      copy.translation.translatedLetter,
+      translationResult.translatedLetter,
+      copy.translation.translationNotes,
+      ...translationResult.translationNotes,
+      translationResult.safetyNotice,
+    );
+  } else {
+    lines.push(copy.uploadPanel.heading, copy.uploadPanel.intro, copy.results.readyForPaperwork);
+  }
+
+  return lines
+    .filter(Boolean)
+    .join(". ")
+    .replace(/\s+/g, " ")
+    .slice(0, 4200);
+}
 
 function App() {
   const [appLanguage, setAppLanguage] = useState<AppLanguage>(() => readStoredAppLanguage());
+  const [isAccessibilityMode, setIsAccessibilityMode] = useState(() => readStoredAccessibilityMode());
+  const [isReadingAloud, setIsReadingAloud] = useState(false);
   const [letterText, setLetterText] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -80,6 +170,9 @@ function App() {
   const [comparisonResult, setComparisonResult] = useState<LetterComparisonResult | null>(null);
   const [comparisonError, setComparisonError] = useState("");
   const [isComparingLetters, setIsComparingLetters] = useState(false);
+  const [prescriptionText, setPrescriptionText] = useState("");
+  const [prescriptionResult, setPrescriptionResult] = useState<PrescriptionAdminHelperResult | null>(null);
+  const [prescriptionError, setPrescriptionError] = useState("");
   const [chatQuestion, setChatQuestion] = useState("");
   const [chatHistory, setChatHistory] = useState<ProductChatMessage[]>([]);
   const [chatError, setChatError] = useState("");
@@ -97,12 +190,31 @@ function App() {
     return copy.uploadPanel.textStats(letterText.length, words);
   }, [copy, letterText]);
   const hasAnalysisInput = Boolean(letterText.trim() || attachedFiles.length);
-  const hasExportableResult = Boolean(result || translationResult || comparisonResult);
+  const hasPrescriptionInput = Boolean(prescriptionText.trim() || letterText.trim());
+  const hasExportableResult = Boolean(result || translationResult || comparisonResult || prescriptionResult);
 
   useEffect(() => {
     document.documentElement.lang = getAppLanguageCode(appLanguage);
     window.localStorage.setItem(APP_LANGUAGE_STORAGE_KEY, appLanguage);
   }, [appLanguage]);
+
+  useEffect(() => {
+    window.localStorage.setItem(ACCESSIBILITY_MODE_STORAGE_KEY, isAccessibilityMode ? "true" : "false");
+
+    if (!isAccessibilityMode) {
+      stopSpeechSynthesis();
+      setIsReadingAloud(false);
+    }
+  }, [isAccessibilityMode]);
+
+  useEffect(() => {
+    return () => {
+      if (actionMessageTimerRef.current) {
+        window.clearTimeout(actionMessageTimerRef.current);
+      }
+      stopSpeechSynthesis();
+    };
+  }, []);
 
   async function handleAnalyze() {
     if (!hasAnalysisInput) {
@@ -118,6 +230,7 @@ function App() {
       const analysis = await requestAnalysis(letterText, toAnalysisAttachments(attachedFiles));
       setResult(analysis);
       setComparisonResult(null);
+      setPrescriptionResult(null);
       showActionMessage(analysis.mode === "ai" ? copy.actions.aiCompleted : copy.actions.fallbackReady);
     } finally {
       setIsAnalyzing(false);
@@ -259,6 +372,7 @@ function App() {
       const comparison = buildLetterComparison(previousAnalysis, updatedAnalysis);
 
       setResult(null);
+      setPrescriptionResult(null);
       setComparisonResult(comparison);
       showActionMessage(copy.comparison.ready);
     } catch {
@@ -266,6 +380,24 @@ function App() {
     } finally {
       setIsComparingLetters(false);
     }
+  }
+
+  function handlePrescriptionAdmin() {
+    const text = (prescriptionText.trim() || letterText.trim()).trim();
+
+    if (text.length < 20) {
+      setPrescriptionError(copy.prescription.needText);
+      setPrescriptionResult(null);
+      return;
+    }
+
+    const helperResult = buildPrescriptionAdminHelper(text);
+    setPrescriptionError("");
+    setComparisonResult(null);
+    setResult(null);
+    setPrescriptionResult(helperResult);
+    setCopied(false);
+    showActionMessage(copy.prescription.ready);
   }
 
   async function handleProductChat() {
@@ -303,7 +435,7 @@ function App() {
 
   async function handleCopy() {
     if (!hasExportableResult) return;
-    const didCopy = await copyText(formatAnalysisAsText(result, translationResult, comparisonResult));
+    const didCopy = await copyText(formatAnalysisAsText(result, translationResult, comparisonResult, prescriptionResult));
     if (didCopy) {
       setCopied(true);
       showActionMessage(copy.actions.copied);
@@ -316,7 +448,10 @@ function App() {
 
   function handleDownload() {
     if (!hasExportableResult) return;
-    downloadTextFile("careclarity-summary.txt", formatAnalysisAsText(result, translationResult, comparisonResult));
+    downloadTextFile(
+      "careclarity-summary.txt",
+      formatAnalysisAsText(result, translationResult, comparisonResult, prescriptionResult),
+    );
     showActionMessage(copy.actions.downloadStarted);
   }
 
@@ -331,12 +466,58 @@ function App() {
     setTranslationError("");
     setChatError("");
     setComparisonError("");
+    setPrescriptionError("");
 
     if (isTranslationAppLanguage(nextLanguage)) {
       setTargetLanguage(nextLanguage);
     }
 
     showActionMessage(nextCopy.actions.languageChanged(getAppLanguageLabel(nextLanguage)));
+  }
+
+  function handleToggleAccessibilityMode() {
+    const nextMode = !isAccessibilityMode;
+    setIsAccessibilityMode(nextMode);
+
+    if (!nextMode) {
+      stopSpeechSynthesis();
+      setIsReadingAloud(false);
+    }
+
+    showActionMessage(nextMode ? copy.accessibility.enabled : copy.accessibility.disabled);
+  }
+
+  function handleReadAloud() {
+    if (!("speechSynthesis" in window) || typeof SpeechSynthesisUtterance === "undefined") {
+      showActionMessage(copy.accessibility.readUnavailable);
+      return;
+    }
+
+    stopSpeechSynthesis();
+
+    const utterance = new SpeechSynthesisUtterance(
+      buildReadAloudText({
+        copy,
+        result,
+        translationResult,
+        comparisonResult,
+        prescriptionResult,
+      }),
+    );
+    utterance.lang = getAppLanguageCode(appLanguage);
+    utterance.rate = 0.88;
+    utterance.onend = () => setIsReadingAloud(false);
+    utterance.onerror = () => setIsReadingAloud(false);
+
+    setIsReadingAloud(true);
+    window.speechSynthesis.speak(utterance);
+    showActionMessage(copy.accessibility.readStarted);
+  }
+
+  function handleStopReadAloud() {
+    stopSpeechSynthesis();
+    setIsReadingAloud(false);
+    showActionMessage(copy.accessibility.readStopped);
   }
 
   function handleUploadKeyDown(event: KeyboardEvent<HTMLLabelElement>) {
@@ -359,7 +540,11 @@ function App() {
   }
 
   return (
-    <div className="app-root" lang={getAppLanguageCode(appLanguage)} dir={appDirection}>
+    <div
+      className={isAccessibilityMode ? "app-root accessibility-mode" : "app-root"}
+      lang={getAppLanguageCode(appLanguage)}
+      dir={appDirection}
+    >
       <div className="sticky-frame">
         <header className="app-header">
           <div className="brand-lockup">
@@ -372,6 +557,16 @@ function App() {
             </div>
           </div>
           <div className="header-actions">
+            <button
+              className={isAccessibilityMode ? "accessibility-toggle active" : "accessibility-toggle"}
+              type="button"
+              onClick={handleToggleAccessibilityMode}
+              aria-pressed={isAccessibilityMode}
+              title={isAccessibilityMode ? copy.accessibility.toggleOff : copy.accessibility.toggleOn}
+            >
+              <Eye size={17} aria-hidden="true" />
+              <span>{isAccessibilityMode ? copy.accessibility.toggleOff : copy.accessibility.toggleOn}</span>
+            </button>
             <div className="language-control">
               <label htmlFor="app-language">
                 <Languages size={15} aria-hidden="true" />
@@ -398,6 +593,27 @@ function App() {
             <strong>{copy.safetyBanner.label}</strong> {copy.safetyBanner.text}
           </p>
         </div>
+        {isAccessibilityMode ? (
+          <div className="accessibility-toolbar" role="region" aria-label={copy.accessibility.modeOn}>
+            <div>
+              <strong>{copy.accessibility.modeOn}</strong>
+              <span>{copy.accessibility.description}</span>
+            </div>
+            <div className="accessibility-toolbar-actions">
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={isReadingAloud ? handleStopReadAloud : handleReadAloud}
+              >
+                {isReadingAloud ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                <span>{isReadingAloud ? copy.accessibility.stopReading : copy.accessibility.readPage}</span>
+              </button>
+              <button className="secondary-button subtle-button" type="button" onClick={handleToggleAccessibilityMode}>
+                <span>{copy.accessibility.turnOff}</span>
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <main className="workspace-shell">
@@ -528,6 +744,69 @@ function App() {
               {comparisonError ? (
                 <p className="sentence-error" role="alert">
                   {comparisonError}
+                </p>
+              ) : null}
+            </div>
+          </details>
+
+          <details
+            className="compare-card prescription-card"
+            open={Boolean(prescriptionText || prescriptionResult || prescriptionError)}
+          >
+            <summary>
+              <span className="sentence-icon prescription-icon" aria-hidden="true">
+                <Pill size={18} />
+              </span>
+              <span>
+                <strong>{copy.prescription.heading}</strong>
+                <small>{copy.prescription.intro}</small>
+              </span>
+            </summary>
+            <div className="compare-body">
+              <label className="field-label" htmlFor="prescription-admin-text">
+                {copy.prescription.label}
+              </label>
+              <textarea
+                id="prescription-admin-text"
+                className="sentence-input"
+                placeholder={copy.prescription.placeholder}
+                value={prescriptionText}
+                onChange={(event) => {
+                  setPrescriptionText(event.target.value);
+                  setPrescriptionError("");
+                }}
+                aria-describedby="prescription-admin-helper"
+              />
+              <p id="prescription-admin-helper" className="input-helper">
+                {copy.prescription.helper}
+              </p>
+              <div className="compare-actions">
+                <button
+                  className="secondary-button compare-button"
+                  type="button"
+                  onClick={handlePrescriptionAdmin}
+                  disabled={!hasPrescriptionInput}
+                >
+                  <Pill size={18} aria-hidden="true" />
+                  <span>{copy.prescription.checkButton}</span>
+                </button>
+                <button
+                  className="secondary-button subtle-button"
+                  type="button"
+                  onClick={() => {
+                    setPrescriptionText("");
+                    setPrescriptionResult(null);
+                    setPrescriptionError("");
+                    showActionMessage(copy.prescription.clearButton);
+                  }}
+                  disabled={!prescriptionText && !prescriptionResult && !prescriptionError}
+                >
+                  <span>{copy.prescription.clearButton}</span>
+                </button>
+              </div>
+              {prescriptionError ? (
+                <p className="sentence-error" role="alert">
+                  {prescriptionError}
                 </p>
               ) : null}
             </div>
@@ -763,6 +1042,9 @@ function App() {
                 setComparisonUpdatedText("");
                 setComparisonResult(null);
                 setComparisonError("");
+                setPrescriptionText("");
+                setPrescriptionResult(null);
+                setPrescriptionError("");
                 setChatQuestion("");
                 setChatHistory([]);
                 setChatError("");
@@ -787,9 +1069,17 @@ function App() {
         >
           <div className="results-topbar">
             <div>
-              <h2 id="results-heading">{comparisonResult ? copy.comparison.resultHeading : copy.results.heading}</h2>
+              <h2 id="results-heading">
+                {prescriptionResult
+                  ? copy.prescription.resultHeading
+                  : comparisonResult
+                    ? copy.comparison.resultHeading
+                    : copy.results.heading}
+              </h2>
               <p>
-                {comparisonResult
+                {prescriptionResult
+                  ? copy.prescription.resultReady
+                  : comparisonResult
                   ? copy.comparison.resultReady
                   : result
                   ? resultModeLabel(result, copy.results)
@@ -807,7 +1097,9 @@ function App() {
             />
           </div>
 
-          {comparisonResult ? (
+          {prescriptionResult ? (
+            <PrescriptionAdminDashboard result={prescriptionResult} copy={copy.prescription} />
+          ) : comparisonResult ? (
             <LetterComparisonDashboard
               comparison={comparisonResult}
               copy={copy.comparison}
@@ -888,11 +1180,6 @@ function resultModeLabel(result: AnalysisResult, copy: AppCopy["results"]): stri
 }
 
 export default App;
-
-function readStoredAppLanguage(): AppLanguage {
-  const storedLanguage = window.localStorage.getItem(APP_LANGUAGE_STORAGE_KEY);
-  return isAppLanguage(storedLanguage) ? storedLanguage : DEFAULT_APP_LANGUAGE;
-}
 
 function toAnalysisAttachments(files: AttachedFile[]): AIAnalysisAttachment[] {
   return files.map((file) => ({

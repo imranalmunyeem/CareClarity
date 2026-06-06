@@ -8,6 +8,8 @@ CareClarity is a browser-based, mobile-friendly NHS-style admin companion. It ex
 - Generate a plain-English summary, key details, an action checklist, preparation notes and five safe questions.
 - Create an Appointment Readiness Pack with key appointment details, before-you-go steps and details to confirm.
 - Compare an older and newer letter to show changed appointment/admin details.
+- Use a Prescription Admin Helper to identify collection details, references, contact numbers and admin steps without giving medicine advice.
+- Turn on Accessibility Mode for larger text, high contrast, easy-read spacing, dyslexia-friendly layout support and browser read-aloud.
 - Highlight missing or uncertain information.
 - Keep an always-visible admin-only safety notice.
 - Analyze prescription or letter files in PDF/image format.
@@ -29,6 +31,10 @@ The multilingual translation feature is for admin understanding only. It preserv
 The product language selector changes the CareClarity interface text only. It does not alter the original uploaded paperwork or add medical meaning.
 
 The product-support chatbox answers questions about how to use CareClarity only. It refuses medical advice, diagnosis, treatment, medication, illegal, harmful or safety-bypass requests, even when framed as a test or for someone else.
+
+The Prescription Admin Helper explains collection/admin wording only. It does not check medicine safety, recommend doses, suggest treatment or tell anyone to start, stop or change medication.
+
+Accessibility Mode is opt-in from the top-right control. It changes the browser interface presentation only and does not store patient letters or uploaded files.
 
 The `ZAI_API_KEY` must stay server-side and must never be exposed as a public frontend variable.
 

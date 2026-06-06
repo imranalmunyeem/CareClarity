@@ -144,6 +144,32 @@ h1 {
   flex-wrap: wrap;
 }
 
+.accessibility-toggle {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.accessibility-toggle:hover {
+  border-color: var(--line-strong);
+  background: #eef3f6;
+}
+
+.accessibility-toggle.active {
+  border-color: #111827;
+  background: #111827;
+  color: #ffffff;
+}
+
 .language-control {
   display: flex;
   align-items: center;
@@ -211,6 +237,39 @@ h1 {
 .safety-banner p {
   font-size: 0.92rem;
   line-height: 1.45;
+}
+
+.accessibility-toolbar {
+  width: min(1360px, calc(100% - 32px));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 auto;
+  padding: 10px 0 12px;
+  border-top: 1px solid var(--line);
+}
+
+.accessibility-toolbar > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.accessibility-toolbar strong {
+  line-height: 1.3;
+}
+
+.accessibility-toolbar span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.accessibility-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .workspace-shell {
@@ -428,6 +487,11 @@ button:focus-visible {
 .compare-icon {
   background: #f0f6ef;
   color: var(--green);
+}
+
+.prescription-icon {
+  background: #fff8e8;
+  color: var(--amber);
 }
 
 .sentence-heading p {
@@ -1229,6 +1293,12 @@ button:focus-visible {
   gap: 12px;
 }
 
+.prescription-dashboard {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
 .comparison-summary-card {
   display: grid;
   gap: 12px;
@@ -1246,6 +1316,23 @@ button:focus-visible {
   align-items: start;
 }
 
+.prescription-summary-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #ebc680;
+  border-radius: 8px;
+  background: #fffdf7;
+  box-shadow: var(--shadow);
+}
+
+.prescription-summary-card header {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
 .comparison-summary-card header p {
   margin-top: 3px;
   color: var(--blue);
@@ -1254,6 +1341,19 @@ button:focus-visible {
 }
 
 .comparison-summary-card > p {
+  max-width: 76ch;
+  line-height: 1.5;
+  font-weight: 800;
+}
+
+.prescription-summary-card header p {
+  margin-top: 3px;
+  color: var(--blue);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.prescription-summary-card > p {
   max-width: 76ch;
   line-height: 1.5;
   font-weight: 800;
@@ -1279,6 +1379,70 @@ button:focus-visible {
 
 .comparison-card {
   box-shadow: var(--shadow);
+}
+
+.prescription-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.prescription-detail {
+  display: grid;
+  gap: 7px;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.prescription-detail.needs-check {
+  border-color: #ebc680;
+  background: #fffaf0;
+}
+
+.prescription-detail dt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.prescription-detail dt svg {
+  color: var(--teal);
+  flex: 0 0 auto;
+}
+
+.prescription-detail.needs-check dt svg {
+  color: var(--amber);
+}
+
+.prescription-detail dd {
+  margin: 0;
+  line-height: 1.42;
+  overflow-wrap: anywhere;
+}
+
+.prescription-safety {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--teal-dark);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.prescription-safety svg {
+  margin-top: 1px;
+  color: var(--teal);
 }
 
 .comparison-field-list {
@@ -1769,6 +1933,112 @@ button:focus-visible {
   color: var(--teal);
 }
 
+.accessibility-mode {
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --surface-soft: #f4f7f7;
+  --ink: #050505;
+  --muted: #24313b;
+  --line: #25313b;
+  --line-strong: #111827;
+  --teal: #005f5d;
+  --teal-dark: #003f3e;
+  --blue: #153e67;
+  --green: #1f6b3c;
+  --amber: #7a3f00;
+  --rose: #7f1d1d;
+  --shadow: none;
+  min-height: 100vh;
+  background: #ffffff;
+  font-family: "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif;
+  font-size: 18px;
+  word-spacing: 0.08em;
+}
+
+.accessibility-mode .sticky-frame {
+  background: #ffffff;
+  border-bottom: 2px solid #111827;
+  backdrop-filter: none;
+}
+
+.accessibility-mode .brand-mark,
+.accessibility-mode .primary-button,
+.accessibility-mode .chat-launcher {
+  box-shadow: none;
+}
+
+.accessibility-mode p,
+.accessibility-mode li,
+.accessibility-mode dd,
+.accessibility-mode textarea {
+  line-height: 1.72;
+}
+
+.accessibility-mode button,
+.accessibility-mode select,
+.accessibility-mode textarea {
+  font-size: 1rem;
+}
+
+.accessibility-mode .tool-panel,
+.accessibility-mode .dashboard-card,
+.accessibility-mode .comparison-summary-card,
+.accessibility-mode .prescription-summary-card,
+.accessibility-mode .floating-chat-panel,
+.accessibility-mode .safety-banner,
+.accessibility-mode .accessibility-toolbar {
+  border-color: #111827;
+}
+
+.accessibility-mode .tool-panel,
+.accessibility-mode .dashboard-card,
+.accessibility-mode .comparison-summary-card,
+.accessibility-mode .prescription-summary-card,
+.accessibility-mode .floating-chat-panel {
+  border-width: 2px;
+}
+
+.accessibility-mode .safety-banner {
+  color: #111827;
+}
+
+.accessibility-mode .safety-banner svg,
+.accessibility-mode .dashboard-list.warning svg,
+.accessibility-mode .readiness-list.warning svg,
+.accessibility-mode .warning-list svg {
+  color: #7a3f00;
+}
+
+.accessibility-mode .muted-note,
+.accessibility-mode .field-label,
+.accessibility-mode .input-helper,
+.accessibility-mode .brand-lockup p,
+.accessibility-mode .panel-heading p,
+.accessibility-mode .results-topbar p,
+.accessibility-mode .sentence-heading p,
+.accessibility-mode .compare-card summary small,
+.accessibility-mode .accessibility-toolbar span {
+  color: #24313b;
+}
+
+.accessibility-mode .primary-button,
+.accessibility-mode .secondary-button,
+.accessibility-mode .icon-button,
+.accessibility-mode .tab-button,
+.accessibility-mode .accessibility-toggle,
+.accessibility-mode .chat-launcher {
+  min-height: 48px;
+}
+
+.accessibility-mode select:focus,
+.accessibility-mode textarea:focus,
+.accessibility-mode button:focus-visible,
+.accessibility-mode .upload-control:focus-visible {
+  outline: 3px solid #111827;
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
 @media (max-width: 980px) {
   .workspace-shell {
     grid-template-columns: 1fr;
@@ -1823,6 +2093,7 @@ button:focus-visible {
 @media (max-width: 680px) {
   .app-header,
   .safety-banner,
+  .accessibility-toolbar,
   .workspace-shell {
     width: min(100% - 20px, 1360px);
   }
@@ -1858,6 +2129,35 @@ button:focus-visible {
 
   .header-actions {
     flex: 0 0 auto;
+  }
+
+  .accessibility-toggle {
+    width: 42px;
+    padding: 0;
+  }
+
+  .accessibility-toggle span {
+    width: 1px;
+    height: 1px;
+    position: absolute;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .accessibility-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .accessibility-toolbar-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .accessibility-toolbar-actions .secondary-button {
+    flex: 1 1 136px;
   }
 
   .language-control {
@@ -1924,7 +2224,8 @@ button:focus-visible {
   }
 
   .compare-grid,
-  .comparison-action-grid {
+  .comparison-action-grid,
+  .prescription-detail-grid {
     grid-template-columns: 1fr;
   }
 
@@ -1998,6 +2299,7 @@ button:focus-visible {
 @media (max-width: 460px) {
   .app-header,
   .safety-banner,
+  .accessibility-toolbar,
   .workspace-shell {
     width: min(100% - 16px, 1360px);
   }

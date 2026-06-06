@@ -4,6 +4,7 @@ import { analyzeLetterLocally } from "./analyzer";
 import { analysisRequestSchema, analysisResponseSchema } from "./analysisSchema";
 import { buildAppointmentReadinessPack } from "./appointmentReadiness";
 import { buildLetterComparison } from "./letterComparison";
+import { buildPrescriptionAdminHelper } from "./prescriptionAdmin";
 import { buildMockSentenceExplanation } from "../server/explainSentenceCore";
 import { getUnsafeProductChatReason, productChatPayload } from "../server/productChatCore";
 import { translateLetterPayload } from "../server/translateLetterCore";
@@ -46,6 +47,25 @@ describe("CareClarity safety flow", () => {
     expect(fullText).toContain("Do not start, stop, change or ignore medicine");
     expect(fullText).toContain("cannot check medicine safety or suitability");
     expect(fullText).not.toMatch(/\byou should\s+(take|stop|start|change|increase|decrease)\b/i);
+  });
+
+  it("builds a prescription admin helper without medication advice", () => {
+    const sample = sampleLetters.find((letter) => letter.id === "prescription-admin");
+    expect(sample).toBeDefined();
+
+    const helper = buildPrescriptionAdminHelper(sample!.text);
+    const exported = formatAnalysisAsText(null, null, null, helper);
+
+    expect(helper.summary).toContain("prescription admin paperwork");
+    expect(helper.adminDetails.find((detail) => detail.label === "Prescription reference")?.value).toBe("RX-55820");
+    expect(helper.adminDetails.find((detail) => detail.label === "Collection point")?.value).toContain(
+      "Westbrook Community Pharmacy",
+    );
+    expect(helper.nextSteps.join(" ")).toContain("pharmacist");
+    expect(helper.safetyNotice).toContain("does not provide medication advice");
+    expect(exported).toContain("Prescription admin helper");
+    expect(exported).toContain("RX-55820");
+    expect(exported).not.toMatch(/\byou should\s+(take|stop|start|change|increase|decrease)\b/i);
   });
 
   it("accepts the expected AI response shape with Zod", () => {
@@ -241,6 +261,8 @@ describe("CareClarity safety flow", () => {
       expect(copy.uploadPanel.heading.length).toBeGreaterThan(0);
       expect(copy.dashboard.extractionRows).toHaveLength(8);
       expect(copy.chat.askCareClarity.length).toBeGreaterThan(0);
+      expect(copy.accessibility.toggleOn.length).toBeGreaterThan(0);
+      expect(copy.prescription.heading.length).toBeGreaterThan(0);
       expect(copy.actions.languageChanged(getAppLanguageLabel(language))).not.toContain("{language}");
     }
   });
