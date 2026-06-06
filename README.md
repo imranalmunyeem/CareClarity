@@ -347,13 +347,13 @@ PhD Researcher in Computer Science, Nottingham Trent University
 
 ### Md Abdullah Al Mamun
 
-MSc Cybersecurity student
+MSc Cybersecurity student, University of Bedfordshire
 
 [![Website](https://img.shields.io/badge/Website-almamun.tech-111827?style=for-the-badge&logo=internetarchive&logoColor=white)](https://almamun.tech)
 
 ### Rudrasinh Parmar (Zoro)
 
-MSc Computer Science student
+MSc Computer Science student, University of Bedfordshire
 
 Role: Frontend development
 
