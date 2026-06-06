@@ -2,13 +2,16 @@ export function buildCareClarityPrompt(letterText: string): string {
   return `Analyze this user-provided NHS-style healthcare administration letter or prescription paperwork.
 
 Return JSON with exactly these top-level keys:
-- summary: array of 2 to 5 plain-English admin summary strings.
-- details: array of objects with label, value, evidence and confidence. Confidence must be high, medium or low.
-- checklist: array of objects with task, reason and timing. Timing must be one of: Before appointment, On the day, If needed, As soon as possible.
-- preparationNotes: array of practical appointment/admin preparation strings.
+- structuredInformationExtraction: object with letterType, departmentOrClinic, appointmentDate, appointmentTime, location, contactInfo, namedClinicianOrTeam and actionRequired. Use "Not found in document" for missing values.
+- plainEnglishTranslation: one plain-English paragraph explaining the admin meaning of the paperwork.
+- actionChecklist: array of objects with task, reason and timing. Timing must be one of: Before appointment, On the day, If needed, As soon as possible.
+- appointmentPreparationGuidance: array of practical appointment/admin preparation strings.
 - clinicianQuestions: exactly five safe admin-focused questions the patient can ask.
-- missingOrUnclear: array of missing, uncertain or ambiguous admin details.
-- safetyNotes: array of safety strings.
+- waitingOrReferralGuidance: array of waiting-list or referral admin guidance strings. If none is present, say no specific waiting-list or referral instruction was clearly found.
+- missingOrUncertainInformation: array of missing, uncertain or ambiguous admin details.
+- safetyValidation: object with status, issuesFound and safetyNotice. Status must be SAFE or UNSAFE.
+- patientDashboardSummary: one compact dashboard summary string.
+- confidence: high, medium or low.
 
 Rules:
 - Focus on appointments, referrals, waiting-list admin, contact details, forms, prescription admin, preparation and travel/admin next steps.
@@ -19,6 +22,8 @@ Rules:
 - If information is missing, say it was not found. Do not invent dates, times, locations, names or phone numbers.
 - Use this urgent-care distinction exactly if needed: For urgent medical help in the UK, use NHS 111. For life-threatening emergencies, call 999.
 - Do not ask the user to create an account or imply CareClarity stores data in a database.
+- Set safetyValidation.status to UNSAFE only if the generated response would otherwise contain medical advice, diagnosis, treatment advice, medication advice or instructions to ignore clinicians. Otherwise set it to SAFE.
+- Put any unsafe or borderline output risks in safetyValidation.issuesFound and keep the rest of the response admin-only.
 
 Letter:
 """${letterText}"""`;

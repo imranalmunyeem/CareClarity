@@ -21,33 +21,47 @@ export const analysisRequestSchema = z
     message: "Add letter text or upload a PDF/image before analysis.",
   });
 
+export const confidenceSchema = z.enum(["high", "medium", "low"]);
+
+export const actionChecklistItemSchema = z.object({
+  task: z.string().min(1),
+  reason: z.string().optional(),
+  timing: z.enum(["Before appointment", "On the day", "If needed", "As soon as possible"]),
+});
+
+export const structuredInformationExtractionSchema = z.object({
+  letterType: z.string().min(1),
+  departmentOrClinic: z.string().min(1),
+  appointmentDate: z.string().min(1),
+  appointmentTime: z.string().min(1),
+  location: z.string().min(1),
+  contactInfo: z.string().min(1),
+  namedClinicianOrTeam: z.string().min(1),
+  actionRequired: z.string().min(1),
+});
+
+export const safetyValidationSchema = z.object({
+  status: z.enum(["SAFE", "UNSAFE"]),
+  issuesFound: z.array(z.string().min(1)).max(8),
+  safetyNotice: z.string().min(1),
+});
+
 export const analysisResponseSchema = z.object({
-  summary: z.array(z.string().min(1)).min(1).max(5),
-  details: z
-    .array(
-      z.object({
-        label: z.string().min(1),
-        value: z.string().min(1),
-        evidence: z.string().optional(),
-        confidence: z.enum(["high", "medium", "low"]),
-      }),
-    )
-    .max(8),
-  checklist: z
-    .array(
-      z.object({
-        task: z.string().min(1),
-        reason: z.string().optional(),
-        timing: z.enum(["Before appointment", "On the day", "If needed", "As soon as possible"]),
-      }),
-    )
-    .max(8),
-  preparationNotes: z.array(z.string().min(1)).max(6),
+  structuredInformationExtraction: structuredInformationExtractionSchema,
+  plainEnglishTranslation: z.string().min(1),
+  actionChecklist: z.array(actionChecklistItemSchema).min(1).max(8),
+  appointmentPreparationGuidance: z.array(z.string().min(1)).max(6),
   clinicianQuestions: z.array(z.string().min(1)).length(5),
-  missingOrUnclear: z.array(z.string().min(1)).max(8),
-  safetyNotes: z.array(z.string().min(1)).optional(),
+  waitingOrReferralGuidance: z.array(z.string().min(1)).max(6),
+  missingOrUncertainInformation: z.array(z.string().min(1)).max(8),
+  safetyValidation: safetyValidationSchema,
+  patientDashboardSummary: z.string().min(1),
+  confidence: confidenceSchema,
 });
 
 export type AIAnalysisRequest = z.infer<typeof analysisRequestSchema>;
 export type AIAnalysisAttachment = z.infer<typeof analysisAttachmentSchema>;
+export type AIActionChecklistItem = z.infer<typeof actionChecklistItemSchema>;
+export type StructuredInformationExtraction = z.infer<typeof structuredInformationExtractionSchema>;
+export type SafetyValidation = z.infer<typeof safetyValidationSchema>;
 export type AIAnalysisResponse = z.infer<typeof analysisResponseSchema>;

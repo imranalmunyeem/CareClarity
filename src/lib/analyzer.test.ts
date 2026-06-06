@@ -18,6 +18,9 @@ describe("CareClarity safety flow", () => {
     ].join(" ");
 
     expect(result.details.some((detail) => detail.value === "Prescription admin paperwork")).toBe(true);
+    expect(result.structuredInformationExtraction.letterType).toBe("Prescription admin paperwork");
+    expect(result.safetyValidation.status).toBe("SAFE");
+    expect(result.safetyValidation.issuesFound.join(" ")).toContain("Prescription");
     expect(fullText).toContain("Do not start, stop, change or ignore medicine");
     expect(fullText).toContain("cannot check medicine safety or suitability");
     expect(fullText).not.toMatch(/\byou should\s+(take|stop|start|change|increase|decrease)\b/i);

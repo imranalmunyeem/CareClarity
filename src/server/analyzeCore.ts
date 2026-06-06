@@ -9,7 +9,7 @@ export const NO_STORE_HEADERS = {
 
 type AnalyzePayloadResult = {
   status: number;
-  body: AnalysisResult | { error: string };
+  body: Partial<AnalysisResult> | { error: string };
 };
 
 type ZAIUserContentPart =

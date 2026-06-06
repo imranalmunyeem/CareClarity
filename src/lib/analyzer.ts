@@ -1,4 +1,4 @@
-import type { AIAnalysisAttachment } from "./analysisSchema";
+import type { AIAnalysisAttachment, AIAnalysisResponse, SafetyValidation, StructuredInformationExtraction } from "./analysisSchema";
 
 export type AnalysisMode = "ai" | "fallback";
 export type Confidence = "high" | "medium" | "low";
@@ -16,11 +16,12 @@ export interface ActionItem {
   timing: "Before appointment" | "On the day" | "If needed" | "As soon as possible";
 }
 
-export interface AnalysisResult {
+export interface AnalysisResult extends AIAnalysisResponse {
   mode: AnalysisMode;
   source?: "zai" | "mock";
   fallbackReason?: string;
   generatedAt: string;
+  // Compatibility fields used by the current UI while the richer Z.AI schema rolls out.
   summary: string[];
   details: AdminDetail[];
   checklist: ActionItem[];
@@ -56,6 +57,7 @@ const UNSAFE_OUTPUT_PATTERNS = [
 
 const SAFE_REPLACEMENT =
   "This point needs clinical judgement, so please confirm it with your NHS team, GP practice or pharmacist.";
+const NOT_FOUND = "Not found in document";
 
 export async function requestAnalysis(
   letterText: string,
@@ -138,10 +140,34 @@ export function analyzeLetterLocally(letterText: string): AnalysisResult {
   const preparationNotes = buildPreparationNotes(lower);
   const missingOrUnclear = buildMissingList({ date, time, location, contact, reference }, lower);
   const summary = buildSummary(appointmentType, { date, time, location, contact }, lower);
+  const structuredInformationExtraction = buildStructuredInformation({
+    appointmentType,
+    service,
+    date,
+    time,
+    location,
+    contact,
+    checklist,
+    lines,
+  });
+  const waitingOrReferralGuidance = buildWaitingOrReferralGuidance(lower, contact);
+  const safetyValidation = buildSafetyValidation(lower);
+  const plainEnglishTranslation = summary.join(" ");
+  const patientDashboardSummary = buildPatientDashboardSummary(structuredInformationExtraction, summary);
+  const confidence = inferOverallConfidence({ date, time, location, contact });
 
   return {
     mode: "fallback",
     generatedAt: new Date().toISOString(),
+    structuredInformationExtraction,
+    plainEnglishTranslation,
+    actionChecklist: checklist,
+    appointmentPreparationGuidance: preparationNotes,
+    waitingOrReferralGuidance,
+    missingOrUncertainInformation: missingOrUnclear,
+    safetyValidation,
+    patientDashboardSummary,
+    confidence,
     summary,
     details,
     checklist,
@@ -158,17 +184,48 @@ function normalizeAnalysis(
   fallbackText: string,
 ): AnalysisResult {
   const local = analyzeLetterLocally(fallbackText);
+  const structuredInformationExtraction = cleanStructuredInformation(
+    payload.structuredInformationExtraction,
+    local.structuredInformationExtraction,
+  );
+  const actionChecklist = cleanChecklist(payload.actionChecklist, local.actionChecklist);
+  const appointmentPreparationGuidance = cleanStringArray(
+    payload.appointmentPreparationGuidance,
+    local.appointmentPreparationGuidance,
+  ).slice(0, 6);
+  const waitingOrReferralGuidance = cleanStringArray(
+    payload.waitingOrReferralGuidance,
+    local.waitingOrReferralGuidance,
+  ).slice(0, 6);
+  const safetyValidation = cleanSafetyValidation(payload.safetyValidation, local.safetyValidation);
+  const confidence = isConfidence(payload.confidence) ? payload.confidence : local.confidence;
+  const plainEnglishTranslation = cleanText(payload.plainEnglishTranslation, local.plainEnglishTranslation);
+  const patientDashboardSummary = cleanText(payload.patientDashboardSummary, local.patientDashboardSummary);
+  const missingOrUncertainInformation = cleanStringArray(
+    payload.missingOrUncertainInformation,
+    local.missingOrUncertainInformation,
+  ).slice(0, 8);
+  const clinicianQuestions = cleanStringArray(payload.clinicianQuestions, DEFAULT_QUESTIONS).slice(0, 5);
 
   return {
     mode,
     generatedAt: new Date().toISOString(),
-    summary: cleanStringArray(payload.summary, local.summary).slice(0, 5),
-    details: cleanDetails(payload.details, local.details),
-    checklist: cleanChecklist(payload.checklist, local.checklist),
-    preparationNotes: cleanStringArray(payload.preparationNotes, local.preparationNotes).slice(0, 6),
-    clinicianQuestions: cleanStringArray(payload.clinicianQuestions, DEFAULT_QUESTIONS).slice(0, 5),
-    missingOrUnclear: cleanStringArray(payload.missingOrUnclear, local.missingOrUnclear).slice(0, 8),
-    safetyNotes: SAFETY_NOTES,
+    structuredInformationExtraction,
+    plainEnglishTranslation,
+    actionChecklist,
+    appointmentPreparationGuidance,
+    clinicianQuestions,
+    waitingOrReferralGuidance,
+    missingOrUncertainInformation,
+    safetyValidation,
+    patientDashboardSummary,
+    confidence,
+    summary: cleanStringArray(payload.summary, [patientDashboardSummary, plainEnglishTranslation]).slice(0, 5),
+    details: cleanDetails(payload.details, buildDetailsFromStructured(structuredInformationExtraction, confidence)),
+    checklist: cleanChecklist(payload.checklist, actionChecklist),
+    preparationNotes: cleanStringArray(payload.preparationNotes, appointmentPreparationGuidance).slice(0, 6),
+    missingOrUnclear: cleanStringArray(payload.missingOrUnclear, missingOrUncertainInformation).slice(0, 8),
+    safetyNotes: buildSafetyNotes(safetyValidation),
     source: payload.source === "zai" ? "zai" : mode === "ai" ? "zai" : "mock",
     fallbackReason: typeof payload.fallbackReason === "string" ? payload.fallbackReason : undefined,
   };
@@ -177,6 +234,134 @@ function normalizeAnalysis(
 function buildAttachmentFallbackText(attachments: AIAnalysisAttachment[]): string {
   if (!attachments.length) return "Uploaded healthcare paperwork";
   return `Uploaded healthcare paperwork attachment: ${attachments.map((attachment) => attachment.name).join(", ")}`;
+}
+
+function buildStructuredInformation({
+  appointmentType,
+  service,
+  date,
+  time,
+  location,
+  contact,
+  checklist,
+  lines,
+}: {
+  appointmentType: string;
+  service?: string;
+  date?: string;
+  time?: string;
+  location?: string;
+  contact?: string;
+  checklist: ActionItem[];
+  lines: string[];
+}): StructuredInformationExtraction {
+  const departmentOrClinic = cleanLabelPrefix(service) ?? NOT_FOUND;
+  const namedClinicianOrTeam = findNamedClinicianOrTeam(lines) ?? departmentOrClinic;
+
+  return {
+    letterType: appointmentType,
+    departmentOrClinic,
+    appointmentDate: date ?? NOT_FOUND,
+    appointmentTime: time ?? NOT_FOUND,
+    location: cleanLabelPrefix(location) ?? NOT_FOUND,
+    contactInfo: contact ?? NOT_FOUND,
+    namedClinicianOrTeam,
+    actionRequired: checklist[0]?.task ?? "Check the paperwork and confirm any unclear admin details with the service.",
+  };
+}
+
+function buildWaitingOrReferralGuidance(lower: string, contact?: string): string[] {
+  const guidance: string[] = [];
+
+  if (lower.includes("waiting list") || lower.includes("wait")) {
+    guidance.push("Keep the waiting-list update and any reference details somewhere easy to find.");
+  }
+
+  if (lower.includes("referral")) {
+    guidance.push("Use the referral details in the paperwork when contacting the service about admin progress.");
+  }
+
+  if (contact && (lower.includes("waiting list") || lower.includes("referral"))) {
+    guidance.push(`If the waiting-list or referral admin is unclear, use the contact number shown: ${contact}.`);
+  }
+
+  if (!guidance.length) {
+    guidance.push("No specific waiting-list or referral instruction was clearly found.");
+  }
+
+  return guidance.slice(0, 6);
+}
+
+function buildSafetyValidation(lower: string): SafetyValidation {
+  const issuesFound = isPrescriptionLike(lower)
+    ? ["Prescription or medicine-related wording must stay within admin explanation only."]
+    : [];
+
+  return {
+    status: "SAFE",
+    issuesFound,
+    safetyNotice:
+      "CareClarity explains healthcare admin paperwork only and does not provide diagnosis, treatment or medication advice.",
+  };
+}
+
+function buildPatientDashboardSummary(
+  structuredInformationExtraction: StructuredInformationExtraction,
+  summary: string[],
+): string {
+  const parts = [
+    structuredInformationExtraction.letterType,
+    structuredInformationExtraction.appointmentDate !== NOT_FOUND
+      ? structuredInformationExtraction.appointmentDate
+      : "",
+    structuredInformationExtraction.appointmentTime !== NOT_FOUND
+      ? structuredInformationExtraction.appointmentTime
+      : "",
+  ].filter(Boolean);
+
+  return parts.length ? parts.join(" - ") : summary[0] ?? "Healthcare admin paperwork reviewed.";
+}
+
+function inferOverallConfidence(facts: {
+  date?: string;
+  time?: string;
+  location?: string;
+  contact?: string;
+}): Confidence {
+  const foundCount = [facts.date, facts.time, facts.location, facts.contact].filter(Boolean).length;
+  if (foundCount >= 3) return "high";
+  if (foundCount >= 1) return "medium";
+  return "low";
+}
+
+function buildDetailsFromStructured(
+  structuredInformationExtraction: StructuredInformationExtraction,
+  confidence: Confidence,
+): AdminDetail[] {
+  return [
+    ["Likely letter type", structuredInformationExtraction.letterType],
+    ["Department or clinic", structuredInformationExtraction.departmentOrClinic],
+    ["Date", structuredInformationExtraction.appointmentDate],
+    ["Time", structuredInformationExtraction.appointmentTime],
+    ["Location", structuredInformationExtraction.location],
+    ["Contact information", structuredInformationExtraction.contactInfo],
+    ["Clinician or team", structuredInformationExtraction.namedClinicianOrTeam],
+    ["Action required", structuredInformationExtraction.actionRequired],
+  ]
+    .filter(([, value]) => Boolean(value))
+    .map(([label, value]) => ({
+      label,
+      value,
+      confidence,
+    }));
+}
+
+function buildSafetyNotes(safetyValidation: SafetyValidation): string[] {
+  return [
+    safetyValidation.safetyNotice,
+    ...safetyValidation.issuesFound,
+    ...SAFETY_NOTES,
+  ].filter((item, index, all) => item && all.indexOf(item) === index);
 }
 
 function buildSummary(
@@ -428,6 +613,14 @@ function findService(lines: string[], text: string): string | undefined {
   return findLine(lines, /(clinic|service|department|team|diagnostic|referral|pharmacy)/i);
 }
 
+function findNamedClinicianOrTeam(lines: string[]): string | undefined {
+  return lines.find((line) =>
+    /\b(?:dr|doctor|mr|mrs|ms|miss|professor|consultant|nurse|pharmacist|clinic|service|department|team|unit)\b/i.test(
+      line,
+    ),
+  );
+}
+
 function findEvidence(lines: string[], value?: string): string | undefined {
   if (!value) return undefined;
   return lines.find((line) => line.toLowerCase().includes(value.toLowerCase()));
@@ -465,6 +658,42 @@ function dedupeActions(items: ActionItem[]): ActionItem[] {
     seen.add(key);
     return true;
   });
+}
+
+function cleanText(value: unknown, fallback: string): string {
+  if (typeof value !== "string") return fallback;
+  const cleaned = sanitizeUserFacingText(value);
+  return cleaned || fallback;
+}
+
+function cleanStructuredInformation(
+  value: unknown,
+  fallback: StructuredInformationExtraction,
+): StructuredInformationExtraction {
+  if (!value || typeof value !== "object") return fallback;
+  const record = value as Record<keyof StructuredInformationExtraction, unknown>;
+
+  return {
+    letterType: cleanText(record.letterType, fallback.letterType),
+    departmentOrClinic: cleanText(record.departmentOrClinic, fallback.departmentOrClinic),
+    appointmentDate: cleanText(record.appointmentDate, fallback.appointmentDate),
+    appointmentTime: cleanText(record.appointmentTime, fallback.appointmentTime),
+    location: cleanText(record.location, fallback.location),
+    contactInfo: cleanText(record.contactInfo, fallback.contactInfo),
+    namedClinicianOrTeam: cleanText(record.namedClinicianOrTeam, fallback.namedClinicianOrTeam),
+    actionRequired: cleanText(record.actionRequired, fallback.actionRequired),
+  };
+}
+
+function cleanSafetyValidation(value: unknown, fallback: SafetyValidation): SafetyValidation {
+  if (!value || typeof value !== "object") return fallback;
+  const record = value as Partial<SafetyValidation>;
+
+  return {
+    status: isSafetyStatus(record.status) ? record.status : fallback.status,
+    issuesFound: cleanStringArray(record.issuesFound, fallback.issuesFound).slice(0, 8),
+    safetyNotice: cleanText(record.safetyNotice, fallback.safetyNotice),
+  };
 }
 
 function cleanStringArray(value: unknown, fallback: string[]): string[] {
@@ -523,6 +752,10 @@ function isTiming(value: unknown): value is ActionItem["timing"] {
     value === "If needed" ||
     value === "As soon as possible"
   );
+}
+
+function isSafetyStatus(value: unknown): value is SafetyValidation["status"] {
+  return value === "SAFE" || value === "UNSAFE";
 }
 
 function isPrescriptionLike(lower: string): boolean {
