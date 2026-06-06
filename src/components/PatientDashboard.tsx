@@ -18,7 +18,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import type { AnalysisResult } from "../lib/analyzer";
+import type { AnalysisResult, MissingDetailFlag } from "../lib/analyzer";
 import {
   buildAppointmentReadinessPack,
   type AppointmentReadinessEssentialKey,
@@ -261,9 +261,17 @@ export function ClinicianQuestions({ result, copy }: { result: AnalysisResult; c
 }
 
 export function ThingsToVerify({ result, copy }: { result: AnalysisResult; copy: DashboardCopy }) {
+  const missingDetailFlags = result.missingDetailFlags ?? [];
+
   return (
     <DashboardCard title={copy.thingsToVerify} poweredBy={copy.missingInfoPowered} icon={AlertTriangle}>
       <div className="verify-stack">
+        {missingDetailFlags.length ? (
+          <section>
+            <h4>{copy.flaggedBeforeActing}</h4>
+            <MissingDetailFlagList flags={missingDetailFlags} />
+          </section>
+        ) : null}
         <section>
           <h4>{copy.missingOrUncertain}</h4>
           <ul className="dashboard-list warning">
@@ -288,6 +296,22 @@ export function ThingsToVerify({ result, copy }: { result: AnalysisResult; copy:
         </section>
       </div>
     </DashboardCard>
+  );
+}
+
+function MissingDetailFlagList({ flags }: { flags: MissingDetailFlag[] }) {
+  return (
+    <ul className="missing-flag-list">
+      {flags.map((flag) => (
+        <li key={flag.key} className={`missing-flag ${flag.severity}`}>
+          <AlertTriangle size={18} aria-hidden="true" />
+          <div>
+            <strong>{flag.label}</strong>
+            <span>{flag.detail}</span>
+          </div>
+        </li>
+      ))}
+    </ul>
   );
 }
 

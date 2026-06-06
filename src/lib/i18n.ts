@@ -494,6 +494,7 @@ function createCopy(source: CopySource) {
       questionsToAsk: source.questionsToAsk,
       clinicianQuestionsPowered: source.clinicianQuestionsPowered,
       thingsToVerify: source.thingsToVerify,
+      flaggedBeforeActing: "Flagged before acting",
       missingInfoPowered: source.missingInfoPowered,
       missingOrUncertain: source.missingOrUncertain,
       waitingReferralGuidance: source.waitingReferralGuidance,

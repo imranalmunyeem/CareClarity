@@ -50,6 +50,22 @@ export const safetyValidationSchema = z.object({
   safetyNotice: z.string().min(1),
 });
 
+export const missingDetailFlagKeySchema = z.enum([
+  "no-date",
+  "no-time",
+  "no-location",
+  "unclear-contact-number",
+  "conflicting-instructions",
+  "action-required-no-deadline",
+]);
+
+export const missingDetailFlagSchema = z.object({
+  key: missingDetailFlagKeySchema,
+  label: z.string().min(1),
+  detail: z.string().min(1),
+  severity: z.enum(["check", "warning"]),
+});
+
 export const analysisResponseSchema = z.object({
   structuredInformationExtraction: structuredInformationExtractionSchema,
   plainEnglishTranslation: z.string().min(1),
@@ -58,6 +74,7 @@ export const analysisResponseSchema = z.object({
   clinicianQuestions: z.array(z.string().min(1)).length(5),
   waitingOrReferralGuidance: z.array(z.string().min(1)).max(6),
   missingOrUncertainInformation: z.array(z.string().min(1)).max(8),
+  missingDetailFlags: z.array(missingDetailFlagSchema).max(6),
   safetyValidation: safetyValidationSchema,
   patientDashboardSummary: z.string().min(1),
   confidence: confidenceSchema,
@@ -69,4 +86,6 @@ export type AIAnalysisAttachment = z.infer<typeof analysisAttachmentSchema>;
 export type AIActionChecklistItem = z.infer<typeof actionChecklistItemSchema>;
 export type StructuredInformationExtraction = z.infer<typeof structuredInformationExtractionSchema>;
 export type SafetyValidation = z.infer<typeof safetyValidationSchema>;
+export type MissingDetailFlagKey = z.infer<typeof missingDetailFlagKeySchema>;
+export type MissingDetailFlag = z.infer<typeof missingDetailFlagSchema>;
 export type AIAnalysisResponse = z.infer<typeof analysisResponseSchema>;

@@ -69,6 +69,14 @@ export function formatAnalysisAsText(
     ...result.clinicianQuestions.map((item, index) => `${index + 1}. ${item}`),
     "",
     "Missing or unclear",
+    ...(result.missingDetailFlags?.length
+      ? [
+          "Flagged before acting",
+          ...result.missingDetailFlags.map((flag) => `- ${flag.label}: ${flag.detail}`),
+          "",
+          "Other missing or unclear details",
+        ]
+      : []),
     ...result.missingOrUnclear.map((item) => `- ${item}`),
     "",
     "Safety",

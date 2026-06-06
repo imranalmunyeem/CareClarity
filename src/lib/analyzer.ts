@@ -1,4 +1,13 @@
-import type { AIAnalysisAttachment, AIAnalysisResponse, SafetyValidation, StructuredInformationExtraction } from "./analysisSchema";
+import type {
+  AIAnalysisAttachment,
+  AIAnalysisResponse,
+  MissingDetailFlag,
+  MissingDetailFlagKey,
+  SafetyValidation,
+  StructuredInformationExtraction,
+} from "./analysisSchema";
+
+export type { MissingDetailFlag, MissingDetailFlagKey } from "./analysisSchema";
 
 export type AnalysisMode = "ai" | "fallback";
 export type Confidence = "high" | "medium" | "low";
@@ -28,6 +37,7 @@ export interface AnalysisResult extends AIAnalysisResponse {
   preparationNotes: string[];
   clinicianQuestions: string[];
   missingOrUnclear: string[];
+  missingDetailFlags: MissingDetailFlag[];
   safetyNotes: string[];
 }
 
@@ -138,7 +148,6 @@ export function analyzeLetterLocally(letterText: string): AnalysisResult {
 
   const checklist = buildChecklist(lower, { date, time, location, contact, reference });
   const preparationNotes = buildPreparationNotes(lower);
-  const missingOrUnclear = buildMissingList({ date, time, location, contact, reference }, lower);
   const summary = buildSummary(appointmentType, { date, time, location, contact }, lower);
   const structuredInformationExtraction = buildStructuredInformation({
     appointmentType,
@@ -150,6 +159,20 @@ export function analyzeLetterLocally(letterText: string): AnalysisResult {
     checklist,
     lines,
   });
+  const missingDetailFlags = buildMissingDetailFlags({
+    structuredInformationExtraction,
+    lower,
+    text,
+    lines,
+    date,
+    time,
+    location,
+    contact,
+  });
+  const missingOrUnclear = mergeMissingFlags(
+    buildMissingList({ date, time, location, contact, reference }, lower),
+    missingDetailFlags,
+  );
   const waitingOrReferralGuidance = buildWaitingOrReferralGuidance(lower, contact);
   const safetyValidation = buildSafetyValidation(lower);
   const plainEnglishTranslation = summary.join(" ");
@@ -174,6 +197,7 @@ export function analyzeLetterLocally(letterText: string): AnalysisResult {
     preparationNotes,
     clinicianQuestions: DEFAULT_QUESTIONS,
     missingOrUnclear,
+    missingDetailFlags,
     safetyNotes: SAFETY_NOTES,
   };
 }
@@ -205,6 +229,7 @@ function normalizeAnalysis(
     payload.missingOrUncertainInformation,
     local.missingOrUncertainInformation,
   ).slice(0, 8);
+  const missingDetailFlags = cleanMissingDetailFlags(payload.missingDetailFlags, local.missingDetailFlags);
   const clinicianQuestions = cleanStringArray(payload.clinicianQuestions, DEFAULT_QUESTIONS).slice(0, 5);
 
   return {
@@ -225,6 +250,7 @@ function normalizeAnalysis(
     checklist: cleanChecklist(payload.checklist, actionChecklist),
     preparationNotes: cleanStringArray(payload.preparationNotes, appointmentPreparationGuidance).slice(0, 6),
     missingOrUnclear: cleanStringArray(payload.missingOrUnclear, missingOrUncertainInformation).slice(0, 8),
+    missingDetailFlags,
     safetyNotes: buildSafetyNotes(safetyValidation),
     source: payload.source === "zai" ? "zai" : mode === "ai" ? "zai" : "mock",
     fallbackReason: typeof payload.fallbackReason === "string" ? payload.fallbackReason : undefined,
@@ -550,6 +576,206 @@ function buildMissingList(
   return missing;
 }
 
+function buildMissingDetailFlags({
+  structuredInformationExtraction,
+  lower,
+  text,
+  lines,
+  date,
+  time,
+  location,
+  contact,
+}: {
+  structuredInformationExtraction: StructuredInformationExtraction;
+  lower: string;
+  text: string;
+  lines: string[];
+  date?: string;
+  time?: string;
+  location?: string;
+  contact?: string;
+}): MissingDetailFlag[] {
+  const flags: MissingDetailFlag[] = [];
+  const appointmentLike = isAppointmentLike(lower);
+  const referralLike = isReferralLike(lower);
+  const prescriptionLike = isPrescriptionLike(lower);
+  const dateMissing = !date || isMissingValue(structuredInformationExtraction.appointmentDate);
+  const timeMissing = !time || isMissingValue(structuredInformationExtraction.appointmentTime);
+  const locationMissing = !location || isMissingValue(structuredInformationExtraction.location);
+
+  if (dateMissing && (appointmentLike || referralLike)) {
+    flags.push({
+      key: "no-date",
+      label: "No date found",
+      detail: "No clear appointment or referral date was found. Confirm the date before making travel, work or carer arrangements.",
+      severity: "warning",
+    });
+  }
+
+  if (timeMissing && appointmentLike) {
+    flags.push({
+      key: "no-time",
+      label: "No time found",
+      detail: "No clear appointment time was found. Confirm the time before attending or arranging transport.",
+      severity: "warning",
+    });
+  }
+
+  if (locationMissing && appointmentLike) {
+    flags.push({
+      key: "no-location",
+      label: "No location found",
+      detail: "No clear clinic, building, collection point or appointment location was found. Confirm where to go before travelling.",
+      severity: "warning",
+    });
+  }
+
+  if (hasUnclearContactNumber({ lower, text, contact, prescriptionLike })) {
+    flags.push({
+      key: "unclear-contact-number",
+      label: "Unclear contact number",
+      detail: "No complete contact number was found, or the contact number appears incomplete. Confirm the number before calling.",
+      severity: "check",
+    });
+  }
+
+  if (hasConflictingInstructions(lines)) {
+    flags.push({
+      key: "conflicting-instructions",
+      label: "Conflicting instructions",
+      detail: "Some instructions appear to conflict. Confirm the current instruction with the service before acting.",
+      severity: "warning",
+    });
+  }
+
+  if (hasActionWithoutDeadline({ lower, date, time })) {
+    flags.push({
+      key: "action-required-no-deadline",
+      label: "Action required but no deadline",
+      detail: "The paperwork asks for an action, but no clear deadline or timeframe was found. Confirm when it must be done.",
+      severity: "check",
+    });
+  }
+
+  return dedupeFlags(flags);
+}
+
+function mergeMissingFlags(missing: string[], flags: MissingDetailFlag[]): string[] {
+  return dedupeStrings([...flags.map((flag) => `${flag.label}: ${flag.detail}`), ...missing]).slice(0, 8);
+}
+
+function hasUnclearContactNumber({
+  lower,
+  text,
+  contact,
+  prescriptionLike,
+}: {
+  lower: string;
+  text: string;
+  contact?: string;
+  prescriptionLike: boolean;
+}): boolean {
+  if (contact) return false;
+  if (prescriptionLike) return false;
+
+  const contactMentioned = /\b(?:call|phone|telephone|tel|contact|ring|queries|query|booking team)\b/i.test(lower);
+  const incompletePhone = /\b(?:0|\+44\s?)(?:\d[\s-]?){3,8}\b/.test(text);
+  return contactMentioned || incompletePhone || isAppointmentLike(lower) || isReferralLike(lower);
+}
+
+function hasConflictingInstructions(lines: string[]): boolean {
+  const text = lines.join(" ").toLowerCase();
+  const pairs = [
+    [
+      /\b(?:do not|don't|dont|no need to)\s+(?:attend|come|arrive)\b/,
+      /\b(?:please\s+)?(?:attend|come to|arrive(?:\s+\d+|\s+at|\s+before)?)\b/,
+    ],
+    [
+      /\b(?:do not|don't|dont|no need to)\s+fast\b|\bno fasting\b/,
+      /\b(?:must|need to|required to|please|may need to|might need to)\s+fast\b|\bfast(?:ing)?\s+(?:is|required|for)\b/,
+    ],
+    [
+      /\b(?:do not|don't|dont)\s+bring\b/,
+      /\b(?:please\s+bring|must\s+bring|bring\s+(?:this|your|photo|letter|form))\b/,
+    ],
+    [
+      /\b(?:do not|don't|dont|no need to)\s+(?:call|contact)\s+(?:us\s+)?to\s+confirm\b/,
+      /\b(?:please|must|need to|required to)\s+(?:call|contact)\s+(?:us\s+)?to\s+confirm\b/,
+    ],
+    [
+      /\b(?:do not|don't|dont)\s+complete\b/,
+      /\b(?:please|must|need to|required to)\s+complete\b/,
+    ],
+  ] as const;
+
+  if (pairs.some(([negative, positive]) => negative.test(text) && positive.test(text))) {
+    return true;
+  }
+
+  return false;
+}
+
+function hasActionWithoutDeadline({
+  lower,
+  date,
+  time,
+}: {
+  lower: string;
+  date?: string;
+  time?: string;
+}): boolean {
+  const actionRequired = /\baction required\b/.test(lower) || /\b(?:please|must|need to|required to)\s+(?:complete|return|send|book|confirm|call|contact|register|provide|upload|reply)\b/.test(lower);
+  if (!actionRequired) return false;
+
+  const hasDeadlineSignal =
+    Boolean(date || time) ||
+    /\b(?:by|before|within|no later than|deadline|as soon as possible|on the day|prior to|at least\s+\d+|after\s+\d+|from\s+\d+)\b/.test(
+      lower,
+    );
+
+  return !hasDeadlineSignal;
+}
+
+function isAppointmentLike(lower: string): boolean {
+  return (
+    lower.includes("appointment") ||
+    lower.includes("clinic") ||
+    lower.includes("outpatient") ||
+    lower.includes("diagnostic") ||
+    lower.includes("blood test") ||
+    lower.includes("attend")
+  );
+}
+
+function isReferralLike(lower: string): boolean {
+  return lower.includes("referral") || lower.includes("waiting list");
+}
+
+function isMissingValue(value: string): boolean {
+  return /^(?:not found|not provided|not specified|unclear|unknown|n\/a|none found)/i.test(value.trim());
+}
+
+function dedupeFlags(flags: MissingDetailFlag[]): MissingDetailFlag[] {
+  const seen = new Set<MissingDetailFlagKey>();
+
+  return flags.filter((flag) => {
+    if (seen.has(flag.key)) return false;
+    seen.add(flag.key);
+    return true;
+  });
+}
+
+function dedupeStrings(items: string[]): string[] {
+  const seen = new Set<string>();
+
+  return items.filter((item) => {
+    const key = item.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function inferLetterType(lower: string): string {
   if (isPrescriptionLike(lower)) return "Prescription admin paperwork";
   if (lower.includes("waiting list")) return "Referral waiting-list update";
@@ -723,6 +949,25 @@ function cleanDetails(value: unknown, fallback: AdminDetail[]): AdminDetail[] {
   return cleaned.length ? cleaned.slice(0, 8) : fallback;
 }
 
+function cleanMissingDetailFlags(value: unknown, fallback: MissingDetailFlag[]): MissingDetailFlag[] {
+  if (!Array.isArray(value)) return fallback;
+  const cleaned: MissingDetailFlag[] = [];
+
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const maybe = item as Partial<MissingDetailFlag>;
+    if (!isMissingDetailFlagKey(maybe.key) || !maybe.label || !maybe.detail) continue;
+    cleaned.push({
+      key: maybe.key,
+      label: sanitizeUserFacingText(String(maybe.label)),
+      detail: sanitizeUserFacingText(String(maybe.detail)),
+      severity: maybe.severity === "warning" ? "warning" : "check",
+    });
+  }
+
+  return cleaned.length ? dedupeFlags(cleaned).slice(0, 6) : fallback;
+}
+
 function cleanChecklist(value: unknown, fallback: ActionItem[]): ActionItem[] {
   if (!Array.isArray(value)) return fallback;
   const cleaned: ActionItem[] = [];
@@ -756,6 +1001,17 @@ function isTiming(value: unknown): value is ActionItem["timing"] {
 
 function isSafetyStatus(value: unknown): value is SafetyValidation["status"] {
   return value === "SAFE" || value === "UNSAFE";
+}
+
+function isMissingDetailFlagKey(value: unknown): value is MissingDetailFlagKey {
+  return (
+    value === "no-date" ||
+    value === "no-time" ||
+    value === "no-location" ||
+    value === "unclear-contact-number" ||
+    value === "conflicting-instructions" ||
+    value === "action-required-no-deadline"
+  );
 }
 
 function isPrescriptionLike(lower: string): boolean {

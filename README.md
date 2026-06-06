@@ -13,7 +13,7 @@ CareClarity is a browser-based, mobile-friendly NHS-style admin companion. It ex
 - Use a Prescription Admin Helper to identify collection details, references, contact numbers and admin steps without giving medicine advice.
 - Use an NHS App Navigation Helper for admin-only guidance on where to look for appointments, messages, referrals or prescriptions.
 - Turn on Accessibility Mode for larger text, high contrast, easy-read spacing, dyslexia-friendly layout support and browser read-aloud.
-- Highlight missing or uncertain information.
+- Flag missing or unclear details before the patient acts, including missing date, time, location, unclear contact number, conflicting instructions or an action with no deadline.
 - Keep an always-visible admin-only safety notice.
 - Analyze prescription or letter files in PDF/image format.
 - Translate pasted healthcare admin letters into supported languages with Z.AI-powered translation.

@@ -42,6 +42,12 @@ export function formatCarerSummaryAsText(result: AnalysisResult): string {
     ...result.clinicianQuestions.map((question, index) => `${index + 1}. ${question}`),
     "",
     "Details to double-check",
+    ...(result.missingDetailFlags?.length
+      ? [
+          "Flagged before acting:",
+          ...result.missingDetailFlags.map((flag) => `- ${flag.label}: ${flag.detail}`),
+        ]
+      : []),
     ...result.missingOrUncertainInformation.map((item) => `- ${item}`),
     "",
     "Safety notice",

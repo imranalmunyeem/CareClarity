@@ -104,6 +104,41 @@ describe("CareClarity safety flow", () => {
     expect(pdf).toContain("/Type /Catalog");
   });
 
+  it("flags missing or unclear details before the patient acts", () => {
+    const incompleteLetter = `City Clinic Appointment Service
+
+Dear Patient,
+
+We have arranged a clinic appointment for you.
+
+Please complete the registration form.
+Call the booking team on 0300 123 if you cannot attend.
+Please attend your clinic appointment.
+Do not attend the clinic appointment until you hear from us.
+
+This letter is about appointment admin only.`;
+
+    const result = analyzeLetterLocally(incompleteLetter);
+    const flagKeys = result.missingDetailFlags.map((flag) => flag.key);
+    const exported = formatAnalysisAsText(result);
+    const carerSummary = formatCarerSummaryAsText(result);
+
+    expect(flagKeys).toEqual(
+      expect.arrayContaining([
+        "no-date",
+        "no-time",
+        "no-location",
+        "unclear-contact-number",
+        "conflicting-instructions",
+        "action-required-no-deadline",
+      ]),
+    );
+    expect(result.missingOrUncertainInformation.join(" ")).toContain("No date found");
+    expect(result.missingOrUncertainInformation.join(" ")).toContain("Conflicting instructions");
+    expect(exported).toContain("Flagged before acting");
+    expect(carerSummary).toContain("Flagged before acting");
+  });
+
   it("compares two letters and highlights changed appointment admin details", () => {
     const original = analyzeLetterLocally(sampleLetters[0].text);
     const updatedText = sampleLetters[0].text
@@ -277,6 +312,7 @@ describe("CareClarity safety flow", () => {
       expect(copy.header.languageLabel.length).toBeGreaterThan(0);
       expect(copy.uploadPanel.heading.length).toBeGreaterThan(0);
       expect(copy.dashboard.extractionRows).toHaveLength(8);
+      expect(copy.dashboard.flaggedBeforeActing.length).toBeGreaterThan(0);
       expect(copy.chat.askCareClarity.length).toBeGreaterThan(0);
       expect(copy.accessibility.toggleOn.length).toBeGreaterThan(0);
       expect(copy.prescription.heading.length).toBeGreaterThan(0);
