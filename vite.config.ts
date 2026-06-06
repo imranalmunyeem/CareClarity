@@ -11,6 +11,7 @@ export default defineConfig(({ mode }) => {
   hydrateServerEnv(env);
 
   return {
+    base: normalizeBasePath(env.VITE_BASE_PATH),
     plugins: [react(), careClarityApiPlugin()],
   };
 });
@@ -140,4 +141,14 @@ function hydrateServerEnv(env: Record<string, string>) {
   for (const key of ["ZAI_API_KEY", "ZAI_BASE_URL", "ZAI_MODEL"]) {
     process.env[key] ||= env[key];
   }
+}
+
+function normalizeBasePath(value?: string): string {
+  const basePath = value?.trim();
+
+  if (!basePath) return "/";
+  if (basePath === ".") return "./";
+
+  const withoutSlashes = basePath.replace(/^\/+|\/+$/g, "");
+  return withoutSlashes ? `/${withoutSlashes}/` : "/";
 }

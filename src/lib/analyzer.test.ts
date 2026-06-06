@@ -6,8 +6,9 @@ import { buildAppointmentReadinessPack } from "./appointmentReadiness";
 import { buildCarerSummaryPdf, formatCarerSummaryAsText } from "./carerSummary";
 import { buildLetterComparison } from "./letterComparison";
 import { buildPrescriptionAdminHelper } from "./prescriptionAdmin";
-import { buildMockSentenceExplanation } from "../server/explainSentenceCore";
-import { getUnsafeProductChatReason, productChatPayload } from "../server/productChatCore";
+import { buildMockSentenceExplanation } from "./mockSentenceExplanation";
+import { productChatPayload } from "../server/productChatCore";
+import { getUnsafeProductChatReason } from "./productChatSafety";
 import { translateLetterPayload } from "../server/translateLetterCore";
 import { formatAnalysisAsText } from "./format";
 import {
