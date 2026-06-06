@@ -283,21 +283,6 @@ button:focus-visible {
   overflow-wrap: anywhere;
 }
 
-.toggle-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--ink);
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.toggle-control input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--teal);
-}
-
 .trust-block,
 .upload-block {
   margin-top: 16px;
@@ -981,7 +966,7 @@ button:focus-visible {
 
   .button-row .icon-button {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 1;
     width: 48px;
   }
 

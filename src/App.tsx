@@ -13,7 +13,6 @@ import {
   Image as ImageIcon,
   LockKeyhole,
   Loader2,
-  RefreshCw,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -22,8 +21,8 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
-import { sampleLetters } from "./data/samples";
 import { requestAnalysis, type AnalysisResult } from "./lib/analyzer";
+import type { AIAnalysisAttachment } from "./lib/analysisSchema";
 import { downloadTextFile, formatAnalysisAsText } from "./lib/format";
 
 type ResultTab = "summary" | "actions" | "prep" | "safety";
@@ -33,6 +32,8 @@ interface AttachedFile {
   name: string;
   size: number;
   type: string;
+  mimeType: string;
+  dataUrl: string;
   kind: "pdf" | "image";
 }
 
@@ -43,30 +44,29 @@ const tabs: Array<{ id: ResultTab; label: string; icon: typeof FileText }> = [
   { id: "safety", label: "Safety", icon: ShieldCheck },
 ];
 
-const MAX_ATTACHMENTS = 6;
+const MAX_ATTACHMENTS = 4;
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 
 function App() {
-  const [letterText, setLetterText] = useState(sampleLetters[0].text);
-  const [sampleId, setSampleId] = useState(sampleLetters[0].id);
+  const [letterText, setLetterText] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [activeTab, setActiveTab] = useState<ResultTab>("summary");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [forceDemoMode, setForceDemoMode] = useState(false);
   const [copied, setCopied] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const actionMessageTimerRef = useRef<number | null>(null);
 
-  const selectedSample = sampleLetters.find((sample) => sample.id === sampleId) ?? sampleLetters[0];
   const textStats = useMemo(() => {
     const words = letterText.trim() ? letterText.trim().split(/\s+/).length : 0;
     return `${letterText.length.toLocaleString()} characters / ${words.toLocaleString()} words`;
   }, [letterText]);
+  const hasAnalysisInput = Boolean(letterText.trim() || attachedFiles.length);
 
   async function handleAnalyze() {
-    if (!letterText.trim()) {
-      showActionMessage("Paste letter or prescription text before analysis.");
+    if (!hasAnalysisInput) {
+      showActionMessage("Paste text or upload a PDF/image before analysis.");
       return;
     }
 
@@ -75,44 +75,50 @@ function App() {
     showActionMessage("Analyzing with admin-only safety checks.");
 
     try {
-      const analysis = await requestAnalysis(letterText, forceDemoMode);
+      const analysis = await requestAnalysis(letterText, toAnalysisAttachments(attachedFiles));
       setResult(analysis);
       setActiveTab("summary");
       showActionMessage(
-        analysis.mode === "ai" ? "Z.AI analysis completed server-side." : "Safe demo analysis is ready.",
+        analysis.mode === "ai" ? "Z.AI analysis completed server-side." : "Safe fallback result is ready.",
       );
     } finally {
       setIsAnalyzing(false);
     }
   }
 
-  function handleSampleChange(nextId: string) {
-    const nextSample = sampleLetters.find((sample) => sample.id === nextId);
-    if (!nextSample) return;
-    setSampleId(nextId);
-    setLetterText(nextSample.text);
-    setResult(null);
-    setCopied(false);
-    showActionMessage(`${nextSample.name} sample loaded.`);
-  }
-
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     if (!files.length) return;
     const unsupportedCount = files.filter((file) => !isSupportedAttachment(file)).length;
+    const oversizedCount = files.filter(
+      (file) => isSupportedAttachment(file) && file.size > MAX_ATTACHMENT_BYTES,
+    ).length;
 
-    const acceptedFiles = files
-      .filter(isSupportedAttachment)
-      .map((file) => ({
-        id: `${file.name}-${file.size}-${file.lastModified}`,
-        name: file.name,
-        size: file.size,
-        type: file.type || "Unknown file type",
-        kind: isPdf(file) ? ("pdf" as const) : ("image" as const),
-      }));
+    const acceptedFiles = await Promise.all(
+      files
+        .filter((file) => isSupportedAttachment(file) && file.size <= MAX_ATTACHMENT_BYTES)
+        .map(async (file) => {
+          const mimeType = getAttachmentMimeType(file);
+          const dataUrl = normalizeDataUrl(await readFileAsDataUrl(file), mimeType);
+
+          return {
+            id: `${file.name}-${file.size}-${file.lastModified}`,
+            name: file.name,
+            size: file.size,
+            type: file.type || mimeType,
+            mimeType,
+            dataUrl,
+            kind: isPdf(file) ? ("pdf" as const) : ("image" as const),
+          };
+        }),
+    );
 
     if (!acceptedFiles.length) {
-      showActionMessage("Choose a PDF or image file. Other file types are ignored.");
+      showActionMessage(
+        oversizedCount
+          ? "Choose a PDF or image under 5 MB."
+          : "Choose a PDF or image file. Other file types are ignored.",
+      );
       event.target.value = "";
       return;
     }
@@ -131,8 +137,9 @@ function App() {
 
       const skippedCount = acceptedFiles.length - addedCount;
       const parts: string[] = [];
-      if (addedCount) parts.push(`${addedCount} file${addedCount === 1 ? "" : "s"} attached locally`);
+      if (addedCount) parts.push(`${addedCount} file${addedCount === 1 ? "" : "s"} ready for analysis`);
       if (unsupportedCount) parts.push(`${unsupportedCount} unsupported file${unsupportedCount === 1 ? "" : "s"} ignored`);
+      if (oversizedCount) parts.push(`${oversizedCount} oversized file${oversizedCount === 1 ? "" : "s"} ignored`);
       if (skippedCount) parts.push(`${skippedCount} duplicate or extra file${skippedCount === 1 ? "" : "s"} skipped`);
       showActionMessage(parts.length ? `${parts.join("; ")}.` : "No new files were attached.");
 
@@ -144,7 +151,7 @@ function App() {
 
   function removeAttachment(fileId: string) {
     setAttachedFiles((current) => current.filter((file) => file.id !== fileId));
-    showActionMessage("Local attachment removed.");
+    showActionMessage("Attachment removed.");
   }
 
   async function handleCopy() {
@@ -227,57 +234,28 @@ function App() {
         <section className="tool-panel input-panel" aria-labelledby="letter-heading">
           <div className="panel-heading">
             <div>
-              <h2 id="letter-heading">Letter</h2>
-              <p>{selectedSample.label}</p>
+              <h2 id="letter-heading">Upload Paperwork</h2>
+              <p>Use a PDF, image or pasted text. No account is needed.</p>
             </div>
-            <img
-              src="/sample-letter-preview.svg"
-              alt="Synthetic healthcare paperwork preview"
-              className="letter-preview"
-            />
-          </div>
-
-          <div className="field-row">
-            <label className="field-label" htmlFor="sample-letter">
-              Sample
-            </label>
-            <select
-              id="sample-letter"
-              value={sampleId}
-              onChange={(event) => handleSampleChange(event.target.value)}
-            >
-              {sampleLetters.map((sample) => (
-                <option key={sample.id} value={sample.id}>
-                  {sample.name}
-                </option>
-              ))}
-            </select>
           </div>
 
           <label className="field-label" htmlFor="letter-text">
-            Letter or prescription text
+            Optional letter or prescription text
           </label>
           <textarea
             id="letter-text"
+            placeholder="Paste text here if you have it. You can also upload a PDF or image below."
             value={letterText}
             onChange={(event) => setLetterText(event.target.value)}
             aria-describedby="letter-helper"
             spellCheck="true"
           />
           <p id="letter-helper" className="input-helper">
-            Paste the text you want explained. Attached files stay local unless you paste their wording here.
+            Paste text when available, or upload a PDF/image and let CareClarity read the paperwork for admin details.
           </p>
 
           <div className="input-footer">
             <span className="text-stat">{textStats}</span>
-            <label className="toggle-control">
-              <input
-                type="checkbox"
-                checked={forceDemoMode}
-                onChange={(event) => setForceDemoMode(event.target.checked)}
-              />
-              <span>Demo mode</span>
-            </label>
           </div>
 
           <section className="trust-block" aria-labelledby="trust-heading">
@@ -299,15 +277,15 @@ function App() {
               </li>
               <li>
                 <ShieldCheck size={17} aria-hidden="true" />
-                <span>Demo mode keeps analysis in the browser; AI mode sends only the text box content for analysis.</span>
+                <span>Files are used for the analysis request only; CareClarity does not keep a database copy.</span>
               </li>
             </ul>
           </section>
 
           <section className="upload-block" aria-labelledby="upload-heading">
             <div className="upload-copy">
-              <h3 id="upload-heading">Attach a prescription or letter</h3>
-              <p>PDF and image files stay in this browser session and can be removed at any time.</p>
+              <h3 id="upload-heading">Upload a prescription or letter</h3>
+              <p>PDF and image files can be analyzed for admin details and removed at any time.</p>
             </div>
             <label
               className="upload-control"
@@ -333,7 +311,7 @@ function App() {
               onChange={handleFileChange}
             />
             {attachedFiles.length ? (
-              <ul className="attachment-list" aria-label="Attached local files">
+              <ul className="attachment-list" aria-label="Files ready for analysis">
                 {attachedFiles.map((file) => (
                   <li key={file.id}>
                     {file.kind === "pdf" ? (
@@ -361,8 +339,7 @@ function App() {
               </ul>
             ) : null}
             <p id="upload-note" className="upload-note">
-              Attached files are not uploaded by this picker. Paste any wording you want explained into the
-              text box above.
+              Your upload is used for this analysis request only. It is not saved to a CareClarity database.
             </p>
           </section>
 
@@ -371,20 +348,11 @@ function App() {
               className="primary-button"
               type="button"
               onClick={handleAnalyze}
-              disabled={isAnalyzing || !letterText.trim()}
-              title="Analyze letter"
+              disabled={isAnalyzing || !hasAnalysisInput}
+              title="Analyze paperwork"
             >
               {isAnalyzing ? <Loader2 className="spin" size={18} /> : <Sparkles size={18} />}
               <span>{isAnalyzing ? "Analyzing" : "Analyze"}</span>
-            </button>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => handleSampleChange(selectedSample.id)}
-              title="Reload selected sample"
-            >
-              <RefreshCw size={18} />
-              <span>Reload</span>
             </button>
             <button
               className="icon-button"
@@ -392,13 +360,13 @@ function App() {
               onClick={() => {
                 setLetterText("");
                 setAttachedFiles([]);
-                fileInputRef.current?.form?.reset();
+                if (fileInputRef.current) fileInputRef.current.value = "";
                 setResult(null);
                 setCopied(false);
-                showActionMessage("Letter text, result and local attachments cleared.");
+                showActionMessage("Paperwork, result and attachments cleared.");
               }}
-              title="Clear letter"
-              aria-label="Clear letter"
+              title="Clear paperwork"
+              aria-label="Clear paperwork"
             >
               <Trash2 size={18} />
             </button>
@@ -545,7 +513,7 @@ function ResultNotice({ result }: { result: AnalysisResult }) {
     return (
       <div className="result-notice success" role="status">
         <ShieldCheck size={17} aria-hidden="true" />
-        <span>Z.AI analysis completed server-side. Your pasted text is not logged by CareClarity.</span>
+        <span>Z.AI analysis completed server-side. Your text and uploaded files are not saved by CareClarity.</span>
       </div>
     );
   }
@@ -554,7 +522,7 @@ function ResultNotice({ result }: { result: AnalysisResult }) {
     <div className="result-notice" role="status">
       <AlertTriangle size={17} aria-hidden="true" />
       <span>
-        {result.fallbackReason ?? "Safe demo analysis is being used."} The app still applies the same admin-only safety
+        {result.fallbackReason ?? "A safe fallback result is being used."} The app still applies the same admin-only safety
         rules.
       </span>
     </div>
@@ -644,17 +612,53 @@ function SafetyView({ result }: { result: AnalysisResult }) {
 }
 
 function resultModeLabel(result: AnalysisResult): string {
-  return result.mode === "ai" ? "Z.AI endpoint result" : "Demo fallback result";
+  return result.mode === "ai" ? "Z.AI endpoint result" : "Safe fallback result";
 }
 
 export default App;
 
+function toAnalysisAttachments(files: AttachedFile[]): AIAnalysisAttachment[] {
+  return files.map((file) => ({
+    name: file.name,
+    mimeType: file.mimeType,
+    dataUrl: file.dataUrl,
+    kind: file.kind,
+  }));
+}
+
 function isSupportedAttachment(file: File): boolean {
-  return isPdf(file) || file.type.startsWith("image/");
+  return isPdf(file) || isImage(file);
 }
 
 function isPdf(file: File): boolean {
   return file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+}
+
+function isImage(file: File): boolean {
+  return file.type.startsWith("image/") || /\.(png|jpe?g|webp|gif|heic)$/i.test(file.name);
+}
+
+function getAttachmentMimeType(file: File): string {
+  if (isPdf(file)) return "application/pdf";
+  if (file.type.startsWith("image/")) return file.type;
+  if (/\.png$/i.test(file.name)) return "image/png";
+  if (/\.webp$/i.test(file.name)) return "image/webp";
+  if (/\.gif$/i.test(file.name)) return "image/gif";
+  if (/\.heic$/i.test(file.name)) return "image/heic";
+  return "image/jpeg";
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error ?? new Error("File could not be read."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function normalizeDataUrl(dataUrl: string, mimeType: string): string {
+  return dataUrl.replace(/^data:[^;]*;base64,/i, `data:${mimeType};base64,`);
 }
 
 function formatBytes(bytes: number): string {

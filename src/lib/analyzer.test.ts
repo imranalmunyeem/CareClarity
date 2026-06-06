@@ -30,6 +30,19 @@ describe("CareClarity safety flow", () => {
 
   it("validates request input before endpoint analysis", () => {
     expect(analysisRequestSchema.safeParse({ letterText: "  Appointment letter  " }).success).toBe(true);
+    expect(
+      analysisRequestSchema.safeParse({
+        letterText: "",
+        attachments: [
+          {
+            name: "letter.jpg",
+            mimeType: "image/jpeg",
+            dataUrl: "data:image/jpeg;base64,abcd",
+            kind: "image",
+          },
+        ],
+      }).success,
+    ).toBe(true);
     expect(analysisRequestSchema.safeParse({ letterText: "" }).success).toBe(false);
     expect(analysisRequestSchema.safeParse({ letterText: "x".repeat(12001) }).success).toBe(false);
   });

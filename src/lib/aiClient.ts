@@ -1,11 +1,16 @@
 const DEFAULT_ZAI_BASE_URL = "https://api.z.ai/api/paas/v4/";
 const DEFAULT_ZAI_MODEL = "glm-5.1";
-const ZAI_REQUEST_TIMEOUT_MS = 15000;
+const ZAI_REQUEST_TIMEOUT_MS = 8000;
 
 type ZAIMessage = {
   role: "system" | "user";
-  content: string;
+  content: string | ZAIContentPart[];
 };
+
+type ZAIContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } }
+  | { type: "file"; file: { file_data: string; filename: string } };
 
 type ZAICompletionRequest = {
   model: string;
@@ -52,6 +57,10 @@ export function getAIClient(): ZAIClient | null {
 
       try {
         if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            throw new Error("Z.AI authentication failed. Check ZAI_API_KEY.");
+          }
+
           throw new Error(`Z.AI request failed with ${response.status}`);
         }
 

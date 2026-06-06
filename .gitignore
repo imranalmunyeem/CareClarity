@@ -3,7 +3,9 @@ dist
 .env
 .env.local
 info.md
+sample/
 .vercel
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+dev-*.log

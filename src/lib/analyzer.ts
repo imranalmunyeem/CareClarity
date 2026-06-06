@@ -1,4 +1,6 @@
-export type AnalysisMode = "ai" | "demo";
+import type { AIAnalysisAttachment } from "./analysisSchema";
+
+export type AnalysisMode = "ai" | "fallback";
 export type Confidence = "high" | "medium" | "low";
 
 export interface AdminDetail {
@@ -57,25 +59,22 @@ const SAFE_REPLACEMENT =
 
 export async function requestAnalysis(
   letterText: string,
-  forceDemoMode: boolean,
+  attachments: AIAnalysisAttachment[] = [],
 ): Promise<AnalysisResult> {
-  if (forceDemoMode) {
-    return analyzeLetterLocally(letterText);
-  }
-
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), 18000);
+  const fallbackText = letterText || buildAttachmentFallbackText(attachments);
 
   try {
-    const response = await requestServerAnalysis(letterText, controller.signal);
+    const response = await requestServerAnalysis(letterText, attachments, controller.signal);
 
     if (!response) {
       throw new Error("Analysis endpoint unavailable");
     }
 
-    return normalizeAnalysis(response, response.mode === "demo" ? "demo" : "ai", letterText);
+    return normalizeAnalysis(response, response.mode === "fallback" ? "fallback" : "ai", fallbackText);
   } catch {
-    return analyzeLetterLocally(letterText);
+    return analyzeLetterLocally(fallbackText);
   } finally {
     window.clearTimeout(timeout);
   }
@@ -83,6 +82,7 @@ export async function requestAnalysis(
 
 async function requestServerAnalysis(
   letterText: string,
+  attachments: AIAnalysisAttachment[],
   signal: AbortSignal,
 ): Promise<Partial<AnalysisResult> | null> {
   const endpoints = ["/api/analyse-letter", "/api/analyze"];
@@ -91,7 +91,7 @@ async function requestServerAnalysis(
     const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ letterText }),
+      body: JSON.stringify({ letterText, attachments }),
       signal,
     });
 
@@ -140,7 +140,7 @@ export function analyzeLetterLocally(letterText: string): AnalysisResult {
   const summary = buildSummary(appointmentType, { date, time, location, contact }, lower);
 
   return {
-    mode: "demo",
+    mode: "fallback",
     generatedAt: new Date().toISOString(),
     summary,
     details,
@@ -172,6 +172,11 @@ function normalizeAnalysis(
     source: payload.source === "zai" ? "zai" : mode === "ai" ? "zai" : "mock",
     fallbackReason: typeof payload.fallbackReason === "string" ? payload.fallbackReason : undefined,
   };
+}
+
+function buildAttachmentFallbackText(attachments: AIAnalysisAttachment[]): string {
+  if (!attachments.length) return "Uploaded healthcare paperwork";
+  return `Uploaded healthcare paperwork attachment: ${attachments.map((attachment) => attachment.name).join(", ")}`;
 }
 
 function buildSummary(

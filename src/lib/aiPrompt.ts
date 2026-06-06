@@ -1,5 +1,5 @@
 export function buildCareClarityPrompt(letterText: string): string {
-  return `Analyze this synthetic or user-provided NHS-style healthcare administration letter or prescription paperwork.
+  return `Analyze this user-provided NHS-style healthcare administration letter or prescription paperwork.
 
 Return JSON with exactly these top-level keys:
 - summary: array of 2 to 5 plain-English admin summary strings.
