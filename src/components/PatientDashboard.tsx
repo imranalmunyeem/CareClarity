@@ -1,18 +1,26 @@
 import {
   AlertTriangle,
+  Building2,
   CalendarDays,
   CheckSquare,
   Clipboard,
   ClipboardCheck,
+  Clock3,
   Download,
   FileSearch,
   HelpCircle,
   Languages,
+  MapPin,
+  Phone,
   ShieldCheck,
   Stethoscope,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { AnalysisResult } from "../lib/analyzer";
+import {
+  buildAppointmentReadinessPack,
+  type AppointmentReadinessEssentialKey,
+} from "../lib/appointmentReadiness";
 import type { AppCopy } from "../lib/i18n";
 
 type IconType = typeof FileSearch;
@@ -33,6 +41,15 @@ type DashboardCardProps = {
   icon: IconType;
   children: ReactNode;
   className?: string;
+};
+
+const readinessIcons: Record<AppointmentReadinessEssentialKey, IconType> = {
+  departmentOrClinic: Building2,
+  appointmentDate: CalendarDays,
+  appointmentTime: Clock3,
+  location: MapPin,
+  contactInfo: Phone,
+  actionRequired: CheckSquare,
 };
 
 export function ExportButtons({ copied, disabled, copy, onCopy, onDownload }: ExportButtonsProps) {
@@ -84,6 +101,51 @@ export function PlainEnglishCard({ result, copy }: { result: AnalysisResult; cop
         <p className="dashboard-summary">{result.patientDashboardSummary}</p>
         <p>{result.plainEnglishTranslation}</p>
         <span className="confidence-pill">{copy.confidenceLabel(result.confidence)}</span>
+      </div>
+    </DashboardCard>
+  );
+}
+
+export function AppointmentReadinessPackCard({ result, copy }: { result: AnalysisResult; copy: DashboardCopy }) {
+  const pack = buildAppointmentReadinessPack(result);
+
+  return (
+    <DashboardCard
+      title={copy.appointmentReadinessPack}
+      poweredBy={copy.appointmentReadinessPowered}
+      icon={CalendarDays}
+      className={`readiness-card ${pack.status}`}
+    >
+      <div className="readiness-pack">
+        <p className="readiness-summary">{pack.summary}</p>
+
+        <section className="readiness-section" aria-labelledby="readiness-details-heading">
+          <h4 id="readiness-details-heading">{copy.readinessEssentials}</h4>
+          <dl className="readiness-essentials">
+            {pack.essentials.map((item) => {
+              const Icon = readinessIcons[item.key];
+
+              return (
+                <div
+                  key={item.key}
+                  className={item.needsCheck ? "readiness-essential needs-check" : "readiness-essential"}
+                >
+                  <dt>
+                    <Icon size={16} aria-hidden="true" />
+                    <span>{getExtractionLabel(copy, item.key)}</span>
+                  </dt>
+                  <dd>{item.value}</dd>
+                </div>
+              );
+            })}
+          </dl>
+        </section>
+
+        <div className="readiness-columns">
+          <ReadinessList title={copy.readinessBeforeYouGo} items={pack.beforeYouGo} icon={CheckSquare} />
+          <ReadinessList title={copy.readinessPrepare} items={pack.bringOrPrepare} icon={Clipboard} />
+          <ReadinessList title={copy.readinessConfirm} items={pack.confirmFirst} icon={AlertTriangle} warning />
+        </div>
       </div>
     </DashboardCard>
   );
@@ -204,6 +266,7 @@ export function SafetyValidationCard({ result, copy }: { result: AnalysisResult;
 export function PatientDashboard({ result, copy }: { result: AnalysisResult; copy: DashboardCopy }) {
   return (
     <div className="patient-dashboard">
+      <AppointmentReadinessPackCard result={result} copy={copy} />
       <PlainEnglishCard result={result} copy={copy} />
       <SmartExtractionCard result={result} copy={copy} />
       <ActionChecklist result={result} copy={copy} />
@@ -212,6 +275,32 @@ export function PatientDashboard({ result, copy }: { result: AnalysisResult; cop
       <ThingsToVerify result={result} copy={copy} />
       <SafetyValidationCard result={result} copy={copy} />
     </div>
+  );
+}
+
+function ReadinessList({
+  title,
+  items,
+  icon: Icon,
+  warning = false,
+}: {
+  title: string;
+  items: string[];
+  icon: IconType;
+  warning?: boolean;
+}) {
+  return (
+    <section className="readiness-section">
+      <h4>{title}</h4>
+      <ul className={warning ? "readiness-list warning" : "readiness-list"}>
+        {items.map((item) => (
+          <li key={item}>
+            <Icon size={16} aria-hidden="true" />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -230,4 +319,8 @@ function DashboardCard({ title, poweredBy, icon: Icon, children, className = "" 
       {children}
     </article>
   );
+}
+
+function getExtractionLabel(copy: DashboardCopy, key: AppointmentReadinessEssentialKey): string {
+  return copy.extractionRows.find(([, rowKey]) => rowKey === key)?.[0] ?? key;
 }

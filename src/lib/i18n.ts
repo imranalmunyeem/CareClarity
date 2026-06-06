@@ -243,6 +243,15 @@ function createCopy(source: CopySource) {
       downloadDashboard: source.downloadDashboard,
     },
     dashboard: {
+      appointmentReadinessPack:
+        source.appointmentPreparation === "Appointment Preparation"
+          ? "Appointment Readiness Pack"
+          : source.appointmentPreparation,
+      appointmentReadinessPowered: source.appointmentPreparationPowered,
+      readinessEssentials: source.smartExtraction,
+      readinessBeforeYouGo: source.actionChecklist,
+      readinessPrepare: source.appointmentPreparation,
+      readinessConfirm: source.thingsToVerify,
       smartExtraction: source.smartExtraction,
       extractionPowered: source.extractionPowered,
       extractionRows: [

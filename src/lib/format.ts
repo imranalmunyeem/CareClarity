@@ -1,10 +1,12 @@
 import type { AnalysisResult } from "./analyzer";
+import { buildAppointmentReadinessPack } from "./appointmentReadiness";
 import type { TranslationResponse } from "./translationSchema";
 
 export function formatAnalysisAsText(
   result: AnalysisResult | null,
   translation?: TranslationResponse | null,
 ): string {
+  const readinessPack = result ? buildAppointmentReadinessPack(result) : null;
   const lines = result
     ? [
     "CareClarity admin summary",
@@ -27,6 +29,22 @@ export function formatAnalysisAsText(
     `- Contact info: ${result.structuredInformationExtraction.contactInfo}`,
     `- Named clinician or team: ${result.structuredInformationExtraction.namedClinicianOrTeam}`,
     `- Action required: ${result.structuredInformationExtraction.actionRequired}`,
+    "",
+    "Appointment readiness pack",
+    `Status: ${readinessPack!.status}`,
+    readinessPack!.summary,
+    "",
+    "Key appointment details",
+    ...readinessPack!.essentials.map((item) => `- ${item.key}: ${item.value}${item.needsCheck ? " (check)" : ""}`),
+    "",
+    "Before you go",
+    ...readinessPack!.beforeYouGo.map((item) => `- ${item}`),
+    "",
+    "Bring or prepare",
+    ...readinessPack!.bringOrPrepare.map((item) => `- ${item}`),
+    "",
+    "Confirm first",
+    ...readinessPack!.confirmFirst.map((item) => `- ${item}`),
     "",
     "Plain-English translation",
     result.plainEnglishTranslation,

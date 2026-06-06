@@ -6,6 +6,7 @@ CareClarity is a browser-based, mobile-friendly NHS-style admin companion. It ex
 
 - Upload a PDF/image or paste NHS-style letter and prescription text.
 - Generate a plain-English summary, key details, an action checklist, preparation notes and five safe questions.
+- Create an Appointment Readiness Pack with key appointment details, before-you-go steps and details to confirm.
 - Highlight missing or uncertain information.
 - Keep an always-visible admin-only safety notice.
 - Analyze prescription or letter files in PDF/image format.

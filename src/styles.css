@@ -1040,6 +1040,119 @@ button:focus-visible {
   line-height: 1.35;
 }
 
+.readiness-card {
+  border-color: #a9d6d1;
+  background: linear-gradient(180deg, #fbfefd, #ffffff 58%);
+}
+
+.readiness-card.check-details {
+  border-color: #ebc680;
+}
+
+.readiness-card.missing-details {
+  border-color: #e6b7c0;
+}
+
+.readiness-pack {
+  display: grid;
+  gap: 14px;
+}
+
+.readiness-summary {
+  max-width: 76ch;
+  color: var(--ink);
+  line-height: 1.5;
+  font-weight: 800;
+}
+
+.readiness-section {
+  display: grid;
+  gap: 9px;
+}
+
+.readiness-section h4 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.readiness-essentials {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.readiness-essential {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.readiness-essential.needs-check {
+  border-color: #ebc680;
+  background: #fffaf0;
+}
+
+.readiness-essential dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.readiness-essential dt svg {
+  color: var(--teal);
+  flex: 0 0 auto;
+}
+
+.readiness-essential.needs-check dt svg {
+  color: var(--amber);
+}
+
+.readiness-essential dd {
+  margin: 0;
+  line-height: 1.38;
+  overflow-wrap: anywhere;
+}
+
+.readiness-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.readiness-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.readiness-list li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  line-height: 1.45;
+}
+
+.readiness-list svg {
+  margin-top: 2px;
+  color: var(--teal);
+}
+
+.readiness-list.warning svg {
+  color: var(--amber);
+}
+
 .extraction-grid {
   display: grid;
   gap: 9px;
@@ -1453,6 +1566,7 @@ button:focus-visible {
   }
 
   .dashboard-card:first-child,
+  .readiness-card,
   .safety-card {
     grid-column: 1 / -1;
   }
@@ -1586,6 +1700,11 @@ button:focus-visible {
   }
 
   .translation-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .readiness-essentials,
+  .readiness-columns {
     grid-template-columns: 1fr;
   }
 

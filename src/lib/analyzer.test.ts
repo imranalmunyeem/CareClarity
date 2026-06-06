@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { sampleLetters } from "../data/samples";
 import { analyzeLetterLocally } from "./analyzer";
 import { analysisRequestSchema, analysisResponseSchema } from "./analysisSchema";
+import { buildAppointmentReadinessPack } from "./appointmentReadiness";
 import { buildMockSentenceExplanation } from "../server/explainSentenceCore";
 import { getUnsafeProductChatReason, productChatPayload } from "../server/productChatCore";
 import { translateLetterPayload } from "../server/translateLetterCore";
+import { formatAnalysisAsText } from "./format";
 import {
   APP_LANGUAGES,
   DEFAULT_APP_LANGUAGE,
@@ -48,6 +50,20 @@ describe("CareClarity safety flow", () => {
   it("accepts the expected AI response shape with Zod", () => {
     const result = analyzeLetterLocally(sampleLetters[0].text);
     expect(() => analysisResponseSchema.parse(result)).not.toThrow();
+  });
+
+  it("builds an appointment readiness pack from extracted admin details", () => {
+    const result = analyzeLetterLocally(sampleLetters[0].text);
+    const pack = buildAppointmentReadinessPack(result);
+    const exported = formatAnalysisAsText(result);
+
+    expect(pack.status).toBe("ready");
+    expect(pack.essentials.find((item) => item.key === "appointmentDate")?.value).toContain("18 June 2026");
+    expect(pack.essentials.find((item) => item.key === "location")?.value).toContain("Northbridge Hospital");
+    expect(pack.beforeYouGo.join(" ")).toContain("date, time and location");
+    expect(pack.bringOrPrepare.join(" ")).toContain("letter");
+    expect(exported).toContain("Appointment readiness pack");
+    expect(exported).toContain("Before you go");
   });
 
   it("validates request input before endpoint analysis", () => {
