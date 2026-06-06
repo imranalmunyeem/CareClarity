@@ -67,4 +67,25 @@ Please bring photo ID if available and this appointment letter. The letter says 
 
 If you are unable to attend, call 0113 555 0170 to rearrange.`,
   },
+  {
+    id: "prescription-admin",
+    name: "Prescription admin",
+    label: "Prescription paperwork",
+    text: `Westbrook Community Pharmacy
+Prescription Collection Notice
+
+Dear Patient,
+
+Your repeat prescription request has been received from your GP practice.
+
+Prescription reference: RX-55820
+Collection point: Westbrook Community Pharmacy, 22 Market Street, WB3 6LF
+Expected ready date: Thursday 23 July 2026 after 2pm
+
+Please bring this message or photo ID if available when collecting. If the medicine name, dose or label is unclear, speak to the pharmacist or your GP practice before taking or changing anything.
+
+For prescription admin queries, call 01632 960 441 Monday to Friday, 9am to 6pm.
+
+This notice is about prescription collection admin only.`,
+  },
 ];

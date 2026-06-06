@@ -1,6 +1,8 @@
 const SAFETY_NOTES = [
-  "This tool explains admin information only and does not give medical advice.",
-  "Please confirm important details with your NHS team.",
+  "This tool explains healthcare admin and prescription paperwork only. It does not give diagnosis, treatment or medication advice.",
+  "Do not start, stop, change or ignore medicine based on this tool.",
+  "Please confirm important details with your NHS team, GP practice or pharmacist.",
+  "No account is needed and this prototype does not store letters, prescriptions or files in a database.",
   "For urgent medical help in the UK, use NHS 111. For life-threatening emergencies, call 999.",
 ];
 
@@ -39,7 +41,7 @@ export default async function handler(request, response) {
           {
             role: "system",
             content:
-              "You are CareClarity, a safe healthcare administration assistant for NHS-style letters. Explain admin content only. Do not diagnose, recommend medication, tell users to ignore clinicians, or make clinical safety decisions. Return compact JSON only.",
+              "You are CareClarity, a safe healthcare administration assistant for NHS-style letters and prescription paperwork. Explain admin content only. Do not diagnose, recommend medication, interpret medication suitability, tell users to ignore clinicians, or make clinical safety decisions. Return compact JSON only.",
           },
           {
             role: "user",
@@ -84,11 +86,14 @@ Return JSON with exactly these top-level keys:
 - missingOrUnclear: array of missing, uncertain or ambiguous admin details.
 - safetyNotes: array of safety strings.
 
-Rules:
-- Focus on appointments, referrals, waiting-list admin, contact details, forms, preparation and travel/admin next steps.
-- Never give diagnosis, treatment advice, medication advice or reassurance about symptoms.
+- Focus on appointments, referrals, waiting-list admin, contact details, forms, prescription admin, preparation and travel/admin next steps.
+- Prescription content is allowed only as paperwork/admin explanation. Never advise whether a medicine is right, safe, effective or suitable for the patient.
+- Never tell the user to start, stop, change, increase, decrease, avoid or ignore medicine.
+- Never give diagnosis, treatment advice, medication advice, interaction advice, dose advice or reassurance about symptoms.
+- If medicine, dose, side-effect, interaction or treatment questions appear, say they should confirm with a pharmacist, GP practice, NHS team or 111/999 as appropriate.
 - If information is missing, say it was not found. Do not invent dates, times, locations, names or phone numbers.
 - Use this urgent-care distinction exactly if needed: For urgent medical help in the UK, use NHS 111. For life-threatening emergencies, call 999.
+- Do not ask the user to create an account or imply CareClarity stores data in a database.
 
 Letter:
 """${letterText}"""`;
