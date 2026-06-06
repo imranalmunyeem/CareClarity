@@ -60,6 +60,6 @@ ZAI_MODEL=glm-5.1
 NEXT_PUBLIC_APP_NAME=CareClarity
 ```
 
-The project uses the OpenAI Node SDK only as a Z.AI-compatible client library. It does not use the OpenAI API base URL or require non-Z.AI API credentials.
+The project uses a server-side Z.AI REST client for analysis and does not require any non-Z.AI API credentials.
 
 Do not paste real patient data into a public demo.

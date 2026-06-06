@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { z } from "zod";
 
 const DEFAULT_ZAI_BASE_URL = "https://api.z.ai/api/paas/v4/";
@@ -62,26 +61,11 @@ export default async function handler(request, response) {
   }
 
   try {
-    const client = new OpenAI({
+    const completion = await createZAIChatCompletion({
       apiKey,
       baseURL: process.env.ZAI_BASE_URL || DEFAULT_ZAI_BASE_URL,
-    });
-
-    const completion = await client.chat.completions.create({
       model: process.env.ZAI_MODEL || DEFAULT_ZAI_MODEL,
-      temperature: 0.2,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are CareClarity, a safe healthcare administration assistant for NHS-style letters and prescription paperwork. Explain admin content only. Do not diagnose, recommend medication, interpret medication suitability, tell users to ignore clinicians, or make clinical safety decisions. Return compact JSON only.",
-        },
-        {
-          role: "user",
-          content: buildPrompt(letterText),
-        },
-      ],
+      letterText,
     });
 
     const content = completion.choices[0]?.message?.content;
@@ -100,6 +84,42 @@ export default async function handler(request, response) {
   } catch {
     return response.status(200).json(mockResponse);
   }
+}
+
+async function createZAIChatCompletion({ apiKey, baseURL, model, letterText }) {
+  const response = await fetch(new URL("chat/completions", normalizeBaseURL(baseURL)), {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      temperature: 0.2,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are CareClarity, a safe healthcare administration assistant for NHS-style letters and prescription paperwork. Explain admin content only. Do not diagnose, recommend medication, interpret medication suitability, tell users to ignore clinicians, or make clinical safety decisions. Return compact JSON only.",
+        },
+        {
+          role: "user",
+          content: buildPrompt(letterText),
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Z.AI request failed with ${response.status}`);
+  }
+
+  return response.json();
+}
+
+function normalizeBaseURL(baseURL) {
+  return baseURL.endsWith("/") ? baseURL : `${baseURL}/`;
 }
 
 function buildPrompt(letterText) {

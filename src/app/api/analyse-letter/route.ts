@@ -19,7 +19,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const completion = await client.chat.completions.create({
+    const completion = await client.createChatCompletion({
       model: getAIModel(),
       temperature: 0.2,
       response_format: { type: "json_object" },
@@ -35,7 +35,7 @@ export async function POST(request: Request): Promise<Response> {
       ],
     });
 
-    const content = completion.choices[0]?.message?.content;
+    const content = completion.choices?.[0]?.message?.content;
     if (!content) {
       return Response.json(mockResponse);
     }

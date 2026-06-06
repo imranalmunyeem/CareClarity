@@ -2,6 +2,7 @@ node_modules
 dist
 .env
 .env.local
+info.md
 .vercel
 npm-debug.log*
 yarn-debug.log*
