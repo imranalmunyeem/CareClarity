@@ -21,6 +21,10 @@ export const analysisRequestSchema = z
     message: "Add letter text or upload a PDF/image before analysis.",
   });
 
+export const letterTextAnalysisRequestSchema = z.object({
+  letterText: z.string().trim().min(1).max(12000),
+});
+
 export const confidenceSchema = z.enum(["high", "medium", "low"]);
 
 export const actionChecklistItemSchema = z.object({
@@ -60,6 +64,7 @@ export const analysisResponseSchema = z.object({
 });
 
 export type AIAnalysisRequest = z.infer<typeof analysisRequestSchema>;
+export type LetterTextAnalysisRequest = z.infer<typeof letterTextAnalysisRequestSchema>;
 export type AIAnalysisAttachment = z.infer<typeof analysisAttachmentSchema>;
 export type AIActionChecklistItem = z.infer<typeof actionChecklistItemSchema>;
 export type StructuredInformationExtraction = z.infer<typeof structuredInformationExtractionSchema>;

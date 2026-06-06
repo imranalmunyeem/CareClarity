@@ -2,7 +2,7 @@ import { analyzePayload, NO_STORE_HEADERS } from "../../../server/analyzeCore";
 
 export async function POST(request: Request): Promise<Response> {
   const body = await request.json().catch(() => null);
-  const result = await analyzePayload(body);
+  const result = await analyzePayload(body, { requireLetterTextOnly: true });
 
   return Response.json(result.body, {
     status: result.status,

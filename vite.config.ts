@@ -17,12 +17,18 @@ function careClarityApiPlugin(): Plugin {
     name: "careclarity-local-api",
     configureServer(server) {
       server.middlewares.use("/api/analyze", handleAnalyzeRequest);
-      server.middlewares.use("/api/analyse-letter", handleAnalyzeRequest);
+      server.middlewares.use("/api/analyse-letter", (request, response) =>
+        handleAnalyzeRequest(request, response, { requireLetterTextOnly: true }),
+      );
     },
   };
 }
 
-async function handleAnalyzeRequest(request: IncomingMessage, response: ServerResponse) {
+async function handleAnalyzeRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  options: { requireLetterTextOnly?: boolean } = {},
+) {
   response.setHeader("Cache-Control", NO_STORE_HEADERS["Cache-Control"]);
   response.setHeader("Content-Type", "application/json; charset=utf-8");
 
@@ -35,7 +41,7 @@ async function handleAnalyzeRequest(request: IncomingMessage, response: ServerRe
 
   try {
     const body = await readJsonBody(request);
-    const result = await analyzePayload(body);
+    const result = await analyzePayload(body, options);
     response.statusCode = result.status;
     response.end(JSON.stringify(result.body));
   } catch {
