@@ -8,6 +8,8 @@ import {
   Languages,
   LockKeyhole,
   Loader2,
+  MessageCircle,
+  Send,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -20,6 +22,8 @@ import { ExportButtons, PatientDashboard } from "./components/PatientDashboard";
 import { requestAnalysis, type AnalysisResult } from "./lib/analyzer";
 import type { AIAnalysisAttachment } from "./lib/analysisSchema";
 import { downloadTextFile, formatAnalysisAsText } from "./lib/format";
+import { requestProductChatAnswer } from "./lib/productChat";
+import type { ProductChatMessage } from "./lib/productChatSchema";
 import { requestSentenceExplanation } from "./lib/sentenceExplainer";
 import type { ExplainSentenceResponse } from "./lib/sentenceExplainerSchema";
 import { requestLetterTranslation } from "./lib/translator";
@@ -55,6 +59,10 @@ function App() {
   const [translationResult, setTranslationResult] = useState<TranslationResponse | null>(null);
   const [translationError, setTranslationError] = useState("");
   const [isTranslating, setIsTranslating] = useState(false);
+  const [chatQuestion, setChatQuestion] = useState("");
+  const [chatHistory, setChatHistory] = useState<ProductChatMessage[]>([]);
+  const [chatError, setChatError] = useState("");
+  const [isChatting, setIsChatting] = useState(false);
   const [copied, setCopied] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -205,6 +213,38 @@ function App() {
     }
   }
 
+  async function handleProductChat() {
+    const question = chatQuestion.trim();
+
+    if (question.length < 3) {
+      setChatError("Ask a CareClarity product question.");
+      return;
+    }
+
+    const recentHistory = chatHistory.slice(-8);
+    setIsChatting(true);
+    setChatError("");
+    setChatQuestion("");
+    setChatHistory((current) => [...current, { role: "user", content: question }]);
+
+    try {
+      const response = await requestProductChatAnswer(question, recentHistory);
+      const assistantContent = [
+        response.answer,
+        response.suggestedNextStep ? `Next step: ${response.suggestedNextStep}` : "",
+        response.safetyNotice,
+      ]
+        .filter(Boolean)
+        .join("\n\n");
+
+      setChatHistory((current) => [...current, { role: "assistant", content: assistantContent }]);
+    } catch (error) {
+      setChatError(error instanceof Error ? error.message : "CareClarity support chat is unavailable right now.");
+    } finally {
+      setIsChatting(false);
+    }
+  }
+
   async function handleCopy() {
     if (!result && !translationResult) return;
     const didCopy = await copyText(formatAnalysisAsText(result, translationResult));
@@ -322,6 +362,64 @@ function App() {
                 <span>Files are used for the analysis request only; CareClarity does not keep a database copy.</span>
               </li>
             </ul>
+          </section>
+
+          <section className="product-chat-card" aria-labelledby="product-chat-heading">
+            <div className="sentence-heading">
+              <span className="sentence-icon chat-icon" aria-hidden="true">
+                <MessageCircle size={18} />
+              </span>
+              <div>
+                <h3 id="product-chat-heading">CareClarity Help Chat</h3>
+                <p>Ask how to use CareClarity in your own language. The chat stays product-support only.</p>
+              </div>
+            </div>
+            {chatHistory.length ? (
+              <div className="chat-log" aria-live="polite">
+                {chatHistory.map((message, index) => (
+                  <article
+                    key={`${message.role}-${index}-${message.content.slice(0, 16)}`}
+                    className={message.role === "user" ? "chat-bubble user" : "chat-bubble assistant"}
+                  >
+                    <span>{message.role === "user" ? "You" : "CareClarity"}</span>
+                    <p>{message.content}</p>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="chat-empty">Try asking: How do I translate a letter? Can I use this without login?</p>
+            )}
+            <label className="field-label" htmlFor="product-chat-question">
+              Product question
+            </label>
+            <textarea
+              id="product-chat-question"
+              className="chat-input"
+              placeholder="Ask how to use CareClarity."
+              value={chatQuestion}
+              onChange={(event) => {
+                setChatQuestion(event.target.value);
+                setChatError("");
+              }}
+            />
+            <button
+              className="secondary-button chat-button"
+              type="button"
+              onClick={handleProductChat}
+              disabled={isChatting || chatQuestion.trim().length < 3}
+            >
+              {isChatting ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
+              <span>{isChatting ? "Replying" : "Ask CareClarity"}</span>
+            </button>
+            {chatError ? (
+              <p className="sentence-error" role="alert">
+                {chatError}
+              </p>
+            ) : null}
+            <p className="chat-safety">
+              <ShieldCheck size={16} aria-hidden="true" />
+              <span>No medical advice, illegal requests, diagnosis, prescribing, or treatment guidance.</span>
+            </p>
           </section>
 
           <section className="sentence-card" aria-labelledby="sentence-heading">
@@ -554,6 +652,9 @@ function App() {
                 setSentenceError("");
                 setTranslationResult(null);
                 setTranslationError("");
+                setChatQuestion("");
+                setChatHistory([]);
+                setChatError("");
                 if (fileInputRef.current) fileInputRef.current.value = "";
                 setResult(null);
                 setCopied(false);

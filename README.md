@@ -10,6 +10,7 @@ CareClarity is a browser-based, mobile-friendly NHS-style admin companion. It ex
 - Keep an always-visible admin-only safety notice.
 - Analyze prescription or letter files in PDF/image format.
 - Translate pasted healthcare admin letters into supported languages with Z.AI-powered translation.
+- Ask CareClarity product-support questions in a multilingual chatbox.
 - Copy or download the result as `.txt`.
 - Show a safe fallback result if Z.AI is unavailable.
 - Use the prototype without login, registration or stored patient records.
@@ -21,6 +22,8 @@ CareClarity is designed as an admin-support prototype, not a medical chatbot. It
 Patients do not need to create an account. Uploaded PDFs/images and pasted text are used for the analysis request only and are not saved to a backend database by CareClarity.
 
 The multilingual translation feature is for admin understanding only. It preserves dates, times, locations, phone numbers, clinic names and appointment instructions as closely as possible, but it is not medical advice and should not be used to make diagnosis, treatment or medication decisions.
+
+The product-support chatbox answers questions about how to use CareClarity only. It refuses medical advice, diagnosis, treatment, medication, illegal, harmful or safety-bypass requests, even when framed as a test or for someone else.
 
 The `ZAI_API_KEY` must stay server-side and must never be exposed as a public frontend variable.
 

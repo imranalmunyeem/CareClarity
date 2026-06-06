@@ -3,6 +3,7 @@ import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import { analyzePayload, NO_STORE_HEADERS, parseRequestBody } from "./src/server/analyzeCore";
 import { explainSentencePayload } from "./src/server/explainSentenceCore";
+import { productChatPayload } from "./src/server/productChatCore";
 import { translateLetterPayload } from "./src/server/translateLetterCore";
 
 export default defineConfig(({ mode }) => {
@@ -23,6 +24,7 @@ function careClarityApiPlugin(): Plugin {
         handleAnalyzeRequest(request, response, { requireLetterTextOnly: true }),
       );
       server.middlewares.use("/api/explain-sentence", handleExplainSentenceRequest);
+      server.middlewares.use("/api/product-chat", handleProductChatRequest);
       server.middlewares.use("/api/translate-letter", handleTranslateLetterRequest);
     },
   };
@@ -68,6 +70,28 @@ async function handleExplainSentenceRequest(request: IncomingMessage, response: 
   try {
     const body = await readJsonBody(request);
     const result = await explainSentencePayload(body);
+    response.statusCode = result.status;
+    response.end(JSON.stringify(result.body));
+  } catch {
+    response.statusCode = 400;
+    response.end(JSON.stringify({ error: "Request body could not be read." }));
+  }
+}
+
+async function handleProductChatRequest(request: IncomingMessage, response: ServerResponse) {
+  response.setHeader("Cache-Control", NO_STORE_HEADERS["Cache-Control"]);
+  response.setHeader("Content-Type", "application/json; charset=utf-8");
+
+  if (request.method !== "POST") {
+    response.statusCode = 405;
+    response.setHeader("Allow", "POST");
+    response.end(JSON.stringify({ error: "Method not allowed" }));
+    return;
+  }
+
+  try {
+    const body = await readJsonBody(request);
+    const result = await productChatPayload(body);
     response.statusCode = result.status;
     response.end(JSON.stringify(result.body));
   } catch {
