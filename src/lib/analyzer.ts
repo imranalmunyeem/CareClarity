@@ -65,24 +65,46 @@ export async function requestAnalysis(
   const timeout = window.setTimeout(() => controller.abort(), 18000);
 
   try {
-    const response = await fetch("/api/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ letterText }),
-      signal: controller.signal,
-    });
+    const response = await requestServerAnalysis(letterText, controller.signal);
 
-    if (!response.ok) {
-      throw new Error(`Analysis endpoint returned ${response.status}`);
+    if (!response) {
+      throw new Error("Analysis endpoint unavailable");
     }
 
-    const payload = (await response.json()) as Partial<AnalysisResult>;
-    return normalizeAnalysis(payload, "ai", letterText);
+    return normalizeAnalysis(response, response.mode === "demo" ? "demo" : "ai", letterText);
   } catch {
     return analyzeLetterLocally(letterText);
   } finally {
     window.clearTimeout(timeout);
   }
+}
+
+async function requestServerAnalysis(
+  letterText: string,
+  signal: AbortSignal,
+): Promise<Partial<AnalysisResult> | null> {
+  const endpoints = ["/api/analyse-letter", "/api/analyze"];
+
+  for (const endpoint of endpoints) {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ letterText }),
+      signal,
+    });
+
+    if (!response.ok) {
+      continue;
+    }
+
+    try {
+      return (await response.json()) as Partial<AnalysisResult>;
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
 }
 
 export function analyzeLetterLocally(letterText: string): AnalysisResult {
