@@ -4,7 +4,8 @@ export function formatAnalysisAsText(result: AnalysisResult): string {
   const lines = [
     "CareClarity admin summary",
     `Generated: ${new Date(result.generatedAt).toLocaleString()}`,
-    `Mode: ${result.mode === "ai" ? "AI endpoint" : "Demo fallback"}`,
+    `Mode: ${result.mode === "ai" ? "Z.AI endpoint" : "Demo fallback"}`,
+    result.fallbackReason ? `Fallback note: ${result.fallbackReason}` : "",
     "",
     "Summary",
     ...result.summary.map((item) => `- ${item}`),

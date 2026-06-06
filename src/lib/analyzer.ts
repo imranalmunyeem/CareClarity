@@ -16,6 +16,8 @@ export interface ActionItem {
 
 export interface AnalysisResult {
   mode: AnalysisMode;
+  source?: "zai" | "mock";
+  fallbackReason?: string;
   generatedAt: string;
   summary: string[];
   details: AdminDetail[];
@@ -167,6 +169,8 @@ function normalizeAnalysis(
     clinicianQuestions: cleanStringArray(payload.clinicianQuestions, DEFAULT_QUESTIONS).slice(0, 5),
     missingOrUnclear: cleanStringArray(payload.missingOrUnclear, local.missingOrUnclear).slice(0, 8),
     safetyNotes: SAFETY_NOTES,
+    source: payload.source === "zai" ? "zai" : mode === "ai" ? "zai" : "mock",
+    fallbackReason: typeof payload.fallbackReason === "string" ? payload.fallbackReason : undefined,
   };
 }
 

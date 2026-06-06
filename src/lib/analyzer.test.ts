@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { sampleLetters } from "../data/samples";
 import { analyzeLetterLocally } from "./analyzer";
-import { analysisResponseSchema } from "./analysisSchema";
+import { analysisRequestSchema, analysisResponseSchema } from "./analysisSchema";
 
 describe("CareClarity safety flow", () => {
   it("keeps prescription paperwork in an admin-only safety boundary", () => {
@@ -26,5 +26,11 @@ describe("CareClarity safety flow", () => {
   it("accepts the expected AI response shape with Zod", () => {
     const result = analyzeLetterLocally(sampleLetters[0].text);
     expect(() => analysisResponseSchema.parse(result)).not.toThrow();
+  });
+
+  it("validates request input before endpoint analysis", () => {
+    expect(analysisRequestSchema.safeParse({ letterText: "  Appointment letter  " }).success).toBe(true);
+    expect(analysisRequestSchema.safeParse({ letterText: "" }).success).toBe(false);
+    expect(analysisRequestSchema.safeParse({ letterText: "x".repeat(12001) }).success).toBe(false);
   });
 });

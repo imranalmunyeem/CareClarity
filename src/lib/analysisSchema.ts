@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export const analysisRequestSchema = z.object({
+  letterText: z.string().trim().min(1).max(12000),
+});
+
 export const analysisResponseSchema = z.object({
   summary: z.array(z.string().min(1)).min(1).max(5),
   details: z
@@ -27,4 +31,5 @@ export const analysisResponseSchema = z.object({
   safetyNotes: z.array(z.string().min(1)).optional(),
 });
 
+export type AIAnalysisRequest = z.infer<typeof analysisRequestSchema>;
 export type AIAnalysisResponse = z.infer<typeof analysisResponseSchema>;

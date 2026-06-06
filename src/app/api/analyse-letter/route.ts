@@ -1,21 +1,26 @@
 import { analyzeLetterLocally } from "../../../lib/analyzer";
 import { getAIClient, getAIModel } from "../../../lib/aiClient";
 import { buildCareClarityPrompt, CARECLARITY_SYSTEM_PROMPT } from "../../../lib/aiPrompt";
-import { analysisResponseSchema } from "../../../lib/analysisSchema";
+import { analysisRequestSchema, analysisResponseSchema } from "../../../lib/analysisSchema";
+
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store",
+};
 
 export async function POST(request: Request): Promise<Response> {
   const body = await request.json().catch(() => null);
-  const letterText = typeof body?.letterText === "string" ? body.letterText.trim() : "";
+  const requestResult = analysisRequestSchema.safeParse(body);
 
-  if (!letterText) {
-    return Response.json({ error: "letterText is required" }, { status: 400 });
+  if (!requestResult.success) {
+    return json({ error: "Paste letter or prescription text before analysis." }, 400);
   }
 
+  const { letterText } = requestResult.data;
   const mockResponse = analyzeLetterLocally(letterText);
   const client = getAIClient();
 
   if (!client) {
-    return Response.json(mockResponse);
+    return json(withFallback(mockResponse, "Z.AI is not configured."));
   }
 
   try {
@@ -37,18 +42,37 @@ export async function POST(request: Request): Promise<Response> {
 
     const content = completion.choices?.[0]?.message?.content;
     if (!content) {
-      return Response.json(mockResponse);
+      return json(withFallback(mockResponse, "Z.AI returned an empty response."));
     }
 
     const parsed = analysisResponseSchema.parse(JSON.parse(content));
 
-    return Response.json({
+    return json({
       ...parsed,
       mode: "ai",
+      source: "zai",
       generatedAt: new Date().toISOString(),
       safetyNotes: mockResponse.safetyNotes,
     });
   } catch {
-    return Response.json(mockResponse);
+    return json(withFallback(mockResponse, "Z.AI analysis was unavailable, so the safe demo analyzer was used."));
   }
+}
+
+function json(body: unknown, status = 200): Response {
+  return Response.json(body, {
+    status,
+    headers: NO_STORE_HEADERS,
+  });
+}
+
+function withFallback<T extends object>(mockResponse: T, fallbackReason: string): T & {
+  fallbackReason: string;
+  source: "mock";
+} {
+  return {
+    ...mockResponse,
+    source: "mock",
+    fallbackReason,
+  };
 }

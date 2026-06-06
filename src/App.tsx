@@ -358,6 +358,8 @@ function App() {
 
           {result ? (
             <>
+              <ResultNotice result={result} />
+
               <div className="tab-list" role="tablist" aria-label="Analysis result sections">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
@@ -423,6 +425,27 @@ function SummaryView({ result }: { result: AnalysisResult }) {
           ))}
         </div>
       </section>
+    </div>
+  );
+}
+
+function ResultNotice({ result }: { result: AnalysisResult }) {
+  if (result.mode === "ai") {
+    return (
+      <div className="result-notice success" role="status">
+        <ShieldCheck size={17} aria-hidden="true" />
+        <span>Z.AI analysis completed server-side. Your pasted text is not logged by CareClarity.</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="result-notice" role="status">
+      <AlertTriangle size={17} aria-hidden="true" />
+      <span>
+        {result.fallbackReason ?? "Safe demo analysis is being used."} The app still applies the same admin-only safety
+        rules.
+      </span>
     </div>
   );
 }
@@ -510,7 +533,7 @@ function SafetyView({ result }: { result: AnalysisResult }) {
 }
 
 function resultModeLabel(result: AnalysisResult): string {
-  return result.mode === "ai" ? "AI endpoint result" : "Demo fallback result";
+  return result.mode === "ai" ? "Z.AI endpoint result" : "Demo fallback result";
 }
 
 export default App;

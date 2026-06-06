@@ -1,5 +1,6 @@
 const DEFAULT_ZAI_BASE_URL = "https://api.z.ai/api/paas/v4/";
 const DEFAULT_ZAI_MODEL = "glm-5.1";
+const ZAI_REQUEST_TIMEOUT_MS = 15000;
 
 type ZAIMessage = {
   role: "system" | "user";
@@ -36,6 +37,9 @@ export function getAIClient(): ZAIClient | null {
 
   return {
     async createChatCompletion(request) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), ZAI_REQUEST_TIMEOUT_MS);
+
       const response = await fetch(new URL("chat/completions", normalizeBaseURL(baseURL)), {
         method: "POST",
         headers: {
@@ -43,13 +47,18 @@ export function getAIClient(): ZAIClient | null {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(request),
+        signal: controller.signal,
       });
 
-      if (!response.ok) {
-        throw new Error(`Z.AI request failed with ${response.status}`);
-      }
+      try {
+        if (!response.ok) {
+          throw new Error(`Z.AI request failed with ${response.status}`);
+        }
 
-      return (await response.json()) as ZAICompletionResponse;
+        return (await response.json()) as ZAICompletionResponse;
+      } finally {
+        clearTimeout(timeout);
+      }
     },
   };
 }
@@ -59,5 +68,11 @@ export function getAIModel(): string {
 }
 
 function normalizeBaseURL(baseURL: string): string {
-  return baseURL.endsWith("/") ? baseURL : `${baseURL}/`;
+  const url = new URL(baseURL.endsWith("/") ? baseURL : `${baseURL}/`);
+
+  if (url.protocol !== "https:" || url.hostname !== "api.z.ai") {
+    throw new Error("ZAI_BASE_URL must point to https://api.z.ai/");
+  }
+
+  return url.toString();
 }

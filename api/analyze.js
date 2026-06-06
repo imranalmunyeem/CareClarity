@@ -2,6 +2,10 @@ import { z } from "zod";
 
 const DEFAULT_ZAI_BASE_URL = "https://api.z.ai/api/paas/v4/";
 const DEFAULT_ZAI_MODEL = "glm-5.1";
+const ZAI_REQUEST_TIMEOUT_MS = 15000;
+const NO_STORE_HEADERS = {
+  "Cache-Control": "no-store",
+};
 
 const SAFETY_NOTES = [
   "This tool explains healthcare admin and prescription paperwork only. It does not give diagnosis, treatment or medication advice.",
@@ -10,6 +14,10 @@ const SAFETY_NOTES = [
   "No account is needed and this prototype does not store letters, prescriptions or files in a database.",
   "For urgent medical help in the UK, use NHS 111. For life-threatening emergencies, call 999.",
 ];
+
+const analysisRequestSchema = z.object({
+  letterText: z.string().trim().min(1).max(12000),
+});
 
 const analysisResponseSchema = z.object({
   summary: z.array(z.string().min(1)).min(1).max(5),
@@ -39,25 +47,27 @@ const analysisResponseSchema = z.object({
 });
 
 export default async function handler(request, response) {
+  response.setHeader("Cache-Control", NO_STORE_HEADERS["Cache-Control"]);
+
   if (request.method !== "POST") {
     response.setHeader("Allow", "POST");
     return response.status(405).json({ error: "Method not allowed" });
   }
 
-  const letterText = String(request.body?.letterText ?? "").trim();
-  if (!letterText) {
-    return response.status(400).json({ error: "letterText is required" });
+  const body = parseRequestBody(request.body);
+  const requestResult = analysisRequestSchema.safeParse(body);
+
+  if (!requestResult.success) {
+    return response.status(400).json({ error: "Paste letter or prescription text before analysis." });
   }
 
-  if (letterText.length > 12000) {
-    return response.status(413).json({ error: "Letter text is too long for this demo" });
-  }
+  const { letterText } = requestResult.data;
 
   const mockResponse = buildMockResponse(letterText);
   const apiKey = process.env.ZAI_API_KEY;
 
   if (!apiKey) {
-    return response.status(200).json(mockResponse);
+    return response.status(200).json(withFallback(mockResponse, "Z.AI is not configured."));
   }
 
   try {
@@ -68,9 +78,9 @@ export default async function handler(request, response) {
       letterText,
     });
 
-    const content = completion.choices[0]?.message?.content;
+    const content = completion.choices?.[0]?.message?.content;
     if (!content) {
-      return response.status(200).json(mockResponse);
+      return response.status(200).json(withFallback(mockResponse, "Z.AI returned an empty response."));
     }
 
     const parsed = analysisResponseSchema.parse(JSON.parse(content));
@@ -78,48 +88,85 @@ export default async function handler(request, response) {
     return response.status(200).json({
       ...parsed,
       mode: "ai",
+      source: "zai",
       generatedAt: new Date().toISOString(),
       safetyNotes: SAFETY_NOTES,
     });
   } catch {
-    return response.status(200).json(mockResponse);
+    return response
+      .status(200)
+      .json(withFallback(mockResponse, "Z.AI analysis was unavailable, so the safe demo analyzer was used."));
   }
 }
 
 async function createZAIChatCompletion({ apiKey, baseURL, model, letterText }) {
-  const response = await fetch(new URL("chat/completions", normalizeBaseURL(baseURL)), {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      temperature: 0.2,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are CareClarity, a safe healthcare administration assistant for NHS-style letters and prescription paperwork. Explain admin content only. Do not diagnose, recommend medication, interpret medication suitability, tell users to ignore clinicians, or make clinical safety decisions. Return compact JSON only.",
-        },
-        {
-          role: "user",
-          content: buildPrompt(letterText),
-        },
-      ],
-    }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ZAI_REQUEST_TIMEOUT_MS);
 
-  if (!response.ok) {
-    throw new Error(`Z.AI request failed with ${response.status}`);
+  try {
+    const response = await fetch(new URL("chat/completions", normalizeBaseURL(baseURL)), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.2,
+        response_format: { type: "json_object" },
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are CareClarity, a safe healthcare administration assistant for NHS-style letters and prescription paperwork. Explain admin content only. Do not diagnose, recommend medication, interpret medication suitability, tell users to ignore clinicians, or make clinical safety decisions. Return compact JSON only.",
+          },
+          {
+            role: "user",
+            content: buildPrompt(letterText),
+          },
+        ],
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Z.AI request failed with ${response.status}`);
+    }
+
+    return response.json();
+  } finally {
+    clearTimeout(timeout);
   }
-
-  return response.json();
 }
 
 function normalizeBaseURL(baseURL) {
-  return baseURL.endsWith("/") ? baseURL : `${baseURL}/`;
+  const url = new URL(baseURL.endsWith("/") ? baseURL : `${baseURL}/`);
+
+  if (url.protocol !== "https:" || url.hostname !== "api.z.ai") {
+    throw new Error("ZAI_BASE_URL must point to https://api.z.ai/");
+  }
+
+  return url.toString();
+}
+
+function parseRequestBody(body) {
+  if (typeof body !== "string") {
+    return body;
+  }
+
+  try {
+    return JSON.parse(body);
+  } catch {
+    return null;
+  }
+}
+
+function withFallback(mockResponse, fallbackReason) {
+  return {
+    ...mockResponse,
+    source: "mock",
+    fallbackReason,
+  };
 }
 
 function buildPrompt(letterText) {
@@ -170,6 +217,7 @@ function buildMockResponse(letterText) {
 
   return {
     mode: "demo",
+    source: "mock",
     generatedAt: new Date().toISOString(),
     summary: [
       `The document appears to be about ${type.toLowerCase()}.`,

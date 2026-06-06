@@ -48,7 +48,15 @@ npm run build
 
 ## Z.AI Endpoint
 
-The app calls server-side endpoints for AI analysis and falls back to the mock/demo analyzer if Z.AI is unavailable or not configured.
+The app calls server-side endpoints for AI analysis and falls back to the mock/demo analyzer if Z.AI is unavailable, not configured, times out or returns an invalid response. Fallback responses include a short reason for the UI, but the endpoint does not log pasted letter or prescription text.
+
+Endpoint hardening:
+
+- `POST /api/analyze` validates input before calling Z.AI.
+- Responses use `Cache-Control: no-store`.
+- `ZAI_BASE_URL` must resolve to `https://api.z.ai/`.
+- Z.AI responses are validated with Zod before being returned to the app.
+- Invalid or empty Z.AI responses safely fall back to demo analysis.
 
 Use these environment variables:
 
