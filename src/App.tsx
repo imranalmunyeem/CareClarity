@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   CalendarDays,
+  CheckCircle2,
   CheckSquare,
   Clipboard,
   ClipboardCheck,
@@ -20,7 +21,7 @@ import {
   UserRoundCheck,
   X,
 } from "lucide-react";
-import { useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { sampleLetters } from "./data/samples";
 import { requestAnalysis, type AnalysisResult } from "./lib/analyzer";
 import { downloadTextFile, formatAnalysisAsText } from "./lib/format";
@@ -42,6 +43,8 @@ const tabs: Array<{ id: ResultTab; label: string; icon: typeof FileText }> = [
   { id: "safety", label: "Safety", icon: ShieldCheck },
 ];
 
+const MAX_ATTACHMENTS = 6;
+
 function App() {
   const [letterText, setLetterText] = useState(sampleLetters[0].text);
   const [sampleId, setSampleId] = useState(sampleLetters[0].id);
@@ -51,7 +54,9 @@ function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [forceDemoMode, setForceDemoMode] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [actionMessage, setActionMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const actionMessageTimerRef = useRef<number | null>(null);
 
   const selectedSample = sampleLetters.find((sample) => sample.id === sampleId) ?? sampleLetters[0];
   const textStats = useMemo(() => {
@@ -60,14 +65,22 @@ function App() {
   }, [letterText]);
 
   async function handleAnalyze() {
-    if (!letterText.trim()) return;
+    if (!letterText.trim()) {
+      showActionMessage("Paste letter or prescription text before analysis.");
+      return;
+    }
+
     setIsAnalyzing(true);
     setCopied(false);
+    showActionMessage("Analyzing with admin-only safety checks.");
 
     try {
       const analysis = await requestAnalysis(letterText, forceDemoMode);
       setResult(analysis);
       setActiveTab("summary");
+      showActionMessage(
+        analysis.mode === "ai" ? "Z.AI analysis completed server-side." : "Safe demo analysis is ready.",
+      );
     } finally {
       setIsAnalyzing(false);
     }
@@ -80,11 +93,13 @@ function App() {
     setLetterText(nextSample.text);
     setResult(null);
     setCopied(false);
+    showActionMessage(`${nextSample.name} sample loaded.`);
   }
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     if (!files.length) return;
+    const unsupportedCount = files.filter((file) => !isSupportedAttachment(file)).length;
 
     const acceptedFiles = files
       .filter(isSupportedAttachment)
@@ -96,15 +111,30 @@ function App() {
         kind: isPdf(file) ? ("pdf" as const) : ("image" as const),
       }));
 
+    if (!acceptedFiles.length) {
+      showActionMessage("Choose a PDF or image file. Other file types are ignored.");
+      event.target.value = "";
+      return;
+    }
+
     setAttachedFiles((current) => {
       const seen = new Set(current.map((file) => file.id));
       const next = [...current];
+      let addedCount = 0;
 
       for (const file of acceptedFiles) {
-        if (seen.has(file.id) || next.length >= 6) continue;
+        if (seen.has(file.id) || next.length >= MAX_ATTACHMENTS) continue;
         next.push(file);
         seen.add(file.id);
+        addedCount += 1;
       }
+
+      const skippedCount = acceptedFiles.length - addedCount;
+      const parts: string[] = [];
+      if (addedCount) parts.push(`${addedCount} file${addedCount === 1 ? "" : "s"} attached locally`);
+      if (unsupportedCount) parts.push(`${unsupportedCount} unsupported file${unsupportedCount === 1 ? "" : "s"} ignored`);
+      if (skippedCount) parts.push(`${skippedCount} duplicate or extra file${skippedCount === 1 ? "" : "s"} skipped`);
+      showActionMessage(parts.length ? `${parts.join("; ")}.` : "No new files were attached.");
 
       return next;
     });
@@ -114,6 +144,7 @@ function App() {
 
   function removeAttachment(fileId: string) {
     setAttachedFiles((current) => current.filter((file) => file.id !== fileId));
+    showActionMessage("Local attachment removed.");
   }
 
   async function handleCopy() {
@@ -121,13 +152,46 @@ function App() {
     const didCopy = await copyText(formatAnalysisAsText(result));
     if (didCopy) {
       setCopied(true);
+      showActionMessage("Result copied to clipboard.");
       window.setTimeout(() => setCopied(false), 1800);
+    } else {
+      setCopied(false);
+      showActionMessage("Copy was blocked by the browser. Download is still available.");
     }
   }
 
   function handleDownload() {
     if (!result) return;
     downloadTextFile("careclarity-summary.txt", formatAnalysisAsText(result));
+    showActionMessage("Text download started.");
+  }
+
+  function handleUploadKeyDown(event: KeyboardEvent<HTMLLabelElement>) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    fileInputRef.current?.click();
+  }
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, currentTab: ResultTab) {
+    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    event.preventDefault();
+    const currentIndex = tabs.findIndex((tab) => tab.id === currentTab);
+    const direction = event.key === "ArrowRight" ? 1 : -1;
+    const nextTab = tabs[(currentIndex + direction + tabs.length) % tabs.length];
+    setActiveTab(nextTab.id);
+  }
+
+  function showActionMessage(message: string) {
+    setActionMessage(message);
+
+    if (actionMessageTimerRef.current) {
+      window.clearTimeout(actionMessageTimerRef.current);
+    }
+
+    actionMessageTimerRef.current = window.setTimeout(() => {
+      setActionMessage("");
+      actionMessageTimerRef.current = null;
+    }, 3200);
   }
 
   return (
@@ -197,8 +261,12 @@ function App() {
             id="letter-text"
             value={letterText}
             onChange={(event) => setLetterText(event.target.value)}
+            aria-describedby="letter-helper"
             spellCheck="true"
           />
+          <p id="letter-helper" className="input-helper">
+            Paste the text you want explained. Attached files stay local unless you paste their wording here.
+          </p>
 
           <div className="input-footer">
             <span className="text-stat">{textStats}</span>
@@ -241,7 +309,15 @@ function App() {
               <h3 id="upload-heading">Attach a prescription or letter</h3>
               <p>PDF and image files stay in this browser session and can be removed at any time.</p>
             </div>
-            <label className="upload-control" htmlFor="document-upload">
+            <label
+              className="upload-control"
+              htmlFor="document-upload"
+              role="button"
+              tabIndex={0}
+              aria-controls="document-upload"
+              aria-describedby="upload-note"
+              onKeyDown={handleUploadKeyDown}
+            >
               <UploadCloud size={22} aria-hidden="true" />
               <span>Choose PDF or image</span>
               <small>PDF, PNG, JPG, WebP or HEIC where supported</small>
@@ -253,6 +329,7 @@ function App() {
               type="file"
               accept="application/pdf,image/*,.pdf,.png,.jpg,.jpeg,.webp,.heic"
               multiple
+              aria-describedby="upload-note"
               onChange={handleFileChange}
             />
             {attachedFiles.length ? (
@@ -267,7 +344,7 @@ function App() {
                     <div>
                       <strong>{file.name}</strong>
                       <span>
-                        {file.kind === "pdf" ? "PDF" : "Image"} · {formatBytes(file.size)}
+                        {file.kind === "pdf" ? "PDF" : "Image"} - {formatBytes(file.size)}
                       </span>
                     </div>
                     <button
@@ -283,7 +360,7 @@ function App() {
                 ))}
               </ul>
             ) : null}
-            <p className="upload-note">
+            <p id="upload-note" className="upload-note">
               Attached files are not uploaded by this picker. Paste any wording you want explained into the
               text box above.
             </p>
@@ -317,6 +394,8 @@ function App() {
                 setAttachedFiles([]);
                 fileInputRef.current?.form?.reset();
                 setResult(null);
+                setCopied(false);
+                showActionMessage("Letter text, result and local attachments cleared.");
               }}
               title="Clear letter"
               aria-label="Clear letter"
@@ -324,9 +403,14 @@ function App() {
               <Trash2 size={18} />
             </button>
           </div>
+          <ActionStatus message={actionMessage} />
         </section>
 
-        <section className="tool-panel results-panel" aria-labelledby="results-heading">
+        <section
+          className="tool-panel results-panel"
+          aria-labelledby="results-heading"
+          aria-busy={isAnalyzing}
+        >
           <div className="results-topbar">
             <div>
               <h2 id="results-heading">Result</h2>
@@ -370,8 +454,12 @@ function App() {
                       className={isActive ? "tab-button active" : "tab-button"}
                       type="button"
                       role="tab"
+                      id={`${tab.id}-tab`}
+                      aria-controls={`${tab.id}-panel`}
                       aria-selected={isActive}
+                      tabIndex={isActive ? 0 : -1}
                       onClick={() => setActiveTab(tab.id)}
+                      onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
                     >
                       <Icon size={16} />
                       <span>{tab.label}</span>
@@ -380,13 +468,23 @@ function App() {
                 })}
               </div>
 
-              <div className="tab-panel" role="tabpanel">
+              <div
+                className="tab-panel"
+                role="tabpanel"
+                id={`${activeTab}-panel`}
+                aria-labelledby={`${activeTab}-tab`}
+              >
                 {activeTab === "summary" && <SummaryView result={result} />}
                 {activeTab === "actions" && <ActionsView result={result} />}
                 {activeTab === "prep" && <PrepView result={result} />}
                 {activeTab === "safety" && <SafetyView result={result} />}
               </div>
             </>
+          ) : isAnalyzing ? (
+            <div className="empty-state loading" aria-live="polite">
+              <Loader2 className="spin" size={42} />
+              <span>Analyzing safely</span>
+            </div>
           ) : (
             <div className="empty-state" aria-live="polite">
               <FileText size={42} />
@@ -396,6 +494,19 @@ function App() {
         </section>
       </main>
     </>
+  );
+}
+
+function ActionStatus({ message }: { message: string }) {
+  return (
+    <div className={message ? "action-status visible" : "action-status"} role="status" aria-live="polite">
+      {message ? (
+        <>
+          <CheckCircle2 size={16} aria-hidden="true" />
+          <span>{message}</span>
+        </>
+      ) : null}
+    </div>
   );
 }
 
