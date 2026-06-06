@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { sampleLetters } from "../data/samples";
 import { analyzeLetterLocally } from "./analyzer";
 import { analysisRequestSchema, analysisResponseSchema } from "./analysisSchema";
+import { buildMockSentenceExplanation } from "../server/explainSentenceCore";
+import { explainSentenceRequestSchema, explainSentenceResponseSchema } from "./sentenceExplainerSchema";
 
 describe("CareClarity safety flow", () => {
   it("keeps prescription paperwork in an admin-only safety boundary", () => {
@@ -48,5 +50,16 @@ describe("CareClarity safety flow", () => {
     ).toBe(true);
     expect(analysisRequestSchema.safeParse({ letterText: "" }).success).toBe(false);
     expect(analysisRequestSchema.safeParse({ letterText: "x".repeat(12001) }).success).toBe(false);
+  });
+
+  it("validates sentence explanation input and fallback response", () => {
+    const sentence = "Please report to reception before your clinic appointment.";
+    const result = buildMockSentenceExplanation(sentence);
+
+    expect(explainSentenceRequestSchema.safeParse({ sentence }).success).toBe(true);
+    expect(explainSentenceRequestSchema.safeParse({ sentence: "short" }).success).toBe(false);
+    expect(() => explainSentenceResponseSchema.parse(result)).not.toThrow();
+    expect(result.originalSentence).toBe(sentence);
+    expect(result.safetyNotice).toContain("does not provide diagnosis");
   });
 });

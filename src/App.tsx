@@ -19,6 +19,8 @@ import { ExportButtons, PatientDashboard } from "./components/PatientDashboard";
 import { requestAnalysis, type AnalysisResult } from "./lib/analyzer";
 import type { AIAnalysisAttachment } from "./lib/analysisSchema";
 import { downloadTextFile, formatAnalysisAsText } from "./lib/format";
+import { requestSentenceExplanation } from "./lib/sentenceExplainer";
+import type { ExplainSentenceResponse } from "./lib/sentenceExplainerSchema";
 
 interface AttachedFile {
   id: string;
@@ -38,6 +40,10 @@ function App() {
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [sentenceText, setSentenceText] = useState("");
+  const [sentenceResult, setSentenceResult] = useState<ExplainSentenceResponse | null>(null);
+  const [sentenceError, setSentenceError] = useState("");
+  const [isExplainingSentence, setIsExplainingSentence] = useState(false);
   const [copied, setCopied] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -136,6 +142,31 @@ function App() {
   function removeAttachment(fileId: string) {
     setAttachedFiles((current) => current.filter((file) => file.id !== fileId));
     showActionMessage("Attachment removed.");
+  }
+
+  async function handleExplainSentence() {
+    const sentence = sentenceText.trim();
+
+    if (sentence.length < 8) {
+      setSentenceError("Paste one full sentence from the letter.");
+      setSentenceResult(null);
+      return;
+    }
+
+    setIsExplainingSentence(true);
+    setSentenceError("");
+    setSentenceResult(null);
+    showActionMessage("Explaining the sentence with admin-only safety rules.");
+
+    try {
+      const explanation = await requestSentenceExplanation(sentence);
+      setSentenceResult(explanation);
+      showActionMessage("Sentence explanation is ready.");
+    } catch (error) {
+      setSentenceError(error instanceof Error ? error.message : "Sentence explanation is unavailable right now.");
+    } finally {
+      setIsExplainingSentence(false);
+    }
   }
 
   async function handleCopy() {
@@ -257,6 +288,71 @@ function App() {
             </ul>
           </section>
 
+          <section className="sentence-card" aria-labelledby="sentence-heading">
+            <div className="sentence-heading">
+              <span className="sentence-icon" aria-hidden="true">
+                <FileText size={18} />
+              </span>
+              <div>
+                <h3 id="sentence-heading">Explain this sentence</h3>
+                <p>Z.AI explains one confusing sentence in plain English, with admin-only safety boundaries.</p>
+              </div>
+            </div>
+            <label className="field-label" htmlFor="sentence-text">
+              Confusing sentence
+            </label>
+            <textarea
+              id="sentence-text"
+              className="sentence-input"
+              placeholder="Paste one sentence from the letter."
+              value={sentenceText}
+              onChange={(event) => {
+                setSentenceText(event.target.value);
+                setSentenceError("");
+              }}
+              aria-describedby="sentence-helper"
+            />
+            <p id="sentence-helper" className="input-helper">
+              Use this for wording that is confusing, not for diagnosis, treatment or medication advice.
+            </p>
+            <button
+              className="secondary-button sentence-button"
+              type="button"
+              onClick={handleExplainSentence}
+              disabled={isExplainingSentence || sentenceText.trim().length < 8}
+            >
+              {isExplainingSentence ? <Loader2 className="spin" size={18} /> : <Sparkles size={18} />}
+              <span>{isExplainingSentence ? "Explaining" : "Explain sentence"}</span>
+            </button>
+            {sentenceError ? (
+              <p className="sentence-error" role="alert">
+                {sentenceError}
+              </p>
+            ) : null}
+            {sentenceResult ? (
+              <div className="sentence-result" aria-live="polite">
+                <dl>
+                  <div>
+                    <dt>Plain-English meaning</dt>
+                    <dd>{sentenceResult.plainEnglishMeaning}</dd>
+                  </div>
+                  <div>
+                    <dt>Why it matters</dt>
+                    <dd>{sentenceResult.whyItMatters}</dd>
+                  </div>
+                  <div>
+                    <dt>Action, if any</dt>
+                    <dd>{sentenceResult.actionIfAny}</dd>
+                  </div>
+                </dl>
+                <p>
+                  <ShieldCheck size={16} aria-hidden="true" />
+                  <span>{sentenceResult.safetyNotice}</span>
+                </p>
+              </div>
+            ) : null}
+          </section>
+
           <section className="upload-block" aria-labelledby="upload-heading">
             <div className="upload-copy">
               <h3 id="upload-heading">Upload a prescription or letter</h3>
@@ -335,6 +431,9 @@ function App() {
               onClick={() => {
                 setLetterText("");
                 setAttachedFiles([]);
+                setSentenceText("");
+                setSentenceResult(null);
+                setSentenceError("");
                 if (fileInputRef.current) fileInputRef.current.value = "";
                 setResult(null);
                 setCopied(false);
