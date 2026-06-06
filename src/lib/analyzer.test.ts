@@ -3,6 +3,7 @@ import { sampleLetters } from "../data/samples";
 import { analyzeLetterLocally } from "./analyzer";
 import { analysisRequestSchema, analysisResponseSchema } from "./analysisSchema";
 import { buildAppointmentReadinessPack } from "./appointmentReadiness";
+import { buildCarerSummaryPdf, formatCarerSummaryAsText } from "./carerSummary";
 import { buildLetterComparison } from "./letterComparison";
 import { buildPrescriptionAdminHelper } from "./prescriptionAdmin";
 import { buildMockSentenceExplanation } from "../server/explainSentenceCore";
@@ -85,6 +86,22 @@ describe("CareClarity safety flow", () => {
     expect(pack.bringOrPrepare.join(" ")).toContain("letter");
     expect(exported).toContain("Appointment readiness pack");
     expect(exported).toContain("Before you go");
+  });
+
+  it("creates a clean family or carer summary in TXT and PDF formats", () => {
+    const result = analyzeLetterLocally(sampleLetters[0].text);
+    const text = formatCarerSummaryAsText(result);
+    const pdf = buildCarerSummaryPdf(result);
+
+    expect(text).toContain("CareClarity family or carer summary");
+    expect(text).toContain("Appointment or admin details");
+    expect(text).toContain("Contact information");
+    expect(text).toContain("Checklist");
+    expect(text).toContain("Questions to ask");
+    expect(text).toContain("Safety notice");
+    expect(text).not.toMatch(/\byou should\s+(take|stop|start|change|increase|decrease)\b/i);
+    expect(pdf.startsWith("%PDF-1.4")).toBe(true);
+    expect(pdf).toContain("/Type /Catalog");
   });
 
   it("compares two letters and highlights changed appointment admin details", () => {
@@ -263,6 +280,8 @@ describe("CareClarity safety flow", () => {
       expect(copy.chat.askCareClarity.length).toBeGreaterThan(0);
       expect(copy.accessibility.toggleOn.length).toBeGreaterThan(0);
       expect(copy.prescription.heading.length).toBeGreaterThan(0);
+      expect(copy.carerSummary.downloadPdf.length).toBeGreaterThan(0);
+      expect(copy.nhsApp.heading.length).toBeGreaterThan(0);
       expect(copy.actions.languageChanged(getAppLanguageLabel(language))).not.toContain("{language}");
     }
   });

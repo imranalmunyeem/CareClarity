@@ -15,6 +15,12 @@ type ComparisonCopy = {
   updatedLabel: string;
   previousPlaceholder: string;
   updatedPlaceholder: string;
+  previousUploadLabel: string;
+  updatedUploadLabel: string;
+  uploadHelper: string;
+  previousFileReady: string;
+  updatedFileReady: string;
+  removeUploadedLetter: string;
   compareButton: string;
   comparing: string;
   clearButton: string;
@@ -42,6 +48,12 @@ const DEFAULT_COMPARISON_COPY: ComparisonCopy = {
   updatedLabel: "Newer letter",
   previousPlaceholder: "Paste the earlier version of the letter.",
   updatedPlaceholder: "Paste the newer or replacement letter.",
+  previousUploadLabel: "Upload older letter",
+  updatedUploadLabel: "Upload newer letter",
+  uploadHelper: "PDF/image uploads are used for this comparison request only and are not saved by CareClarity.",
+  previousFileReady: "Older letter file ready",
+  updatedFileReady: "Newer letter file ready",
+  removeUploadedLetter: "Remove uploaded letter",
   compareButton: "Compare letters",
   comparing: "Comparing",
   clearButton: "Clear comparison",
@@ -61,6 +73,60 @@ const DEFAULT_COMPARISON_COPY: ComparisonCopy = {
   started: "Comparing both letters for admin changes.",
   ready: "Letter comparison is ready.",
   unavailable: "Letter comparison is unavailable right now.",
+};
+
+type CarerSummaryCopy = {
+  heading: string;
+  poweredBy: string;
+  intro: string;
+  downloadTxt: string;
+  downloadPdf: string;
+  detailsPreview: string;
+  safety: string;
+  txtStarted: string;
+  pdfStarted: string;
+};
+
+const DEFAULT_CARER_SUMMARY_COPY: CarerSummaryCopy = {
+  heading: "Family or Carer Summary",
+  poweredBy: "Clean shareable admin summary",
+  intro: "Download a simple summary for a trusted family member or carer helping with paperwork.",
+  downloadTxt: "Download TXT",
+  downloadPdf: "Download PDF",
+  detailsPreview: "Includes appointment details, checklist, contact info, questions to ask and safety notice.",
+  safety:
+    "Share this only with someone you trust. It explains admin information only and does not provide medical advice.",
+  txtStarted: "Family or carer TXT summary downloaded.",
+  pdfStarted: "Family or carer PDF summary downloaded.",
+};
+
+type NhsAppCopy = {
+  heading: string;
+  intro: string;
+  beforeYouStart: string;
+  findingAppointments: string;
+  findingPrescriptions: string;
+  ifDetailsDoNotMatch: string;
+  safety: string;
+  steps: string[];
+};
+
+const DEFAULT_NHS_APP_COPY: NhsAppCopy = {
+  heading: "NHS App Navigation Helper",
+  intro: "Use this admin guide when you want to find appointment, message, referral or prescription information in the NHS App.",
+  beforeYouStart: "Before you start",
+  findingAppointments: "Finding appointment or referral details",
+  findingPrescriptions: "Finding prescription information",
+  ifDetailsDoNotMatch: "If details do not match",
+  safety:
+    "CareClarity is separate from NHS services and does not access your NHS App account. This guide is for navigation only, not medical advice.",
+  steps: [
+    "Open the NHS App or official NHS website and sign in yourself.",
+    "Look for sections such as Appointments, Messages, Referrals, GP health record or Prescriptions. Names can vary by area.",
+    "Compare any date, time, location, reference number or contact detail with your original letter.",
+    "For prescription collection questions, use the pharmacy, GP practice or contact details shown in the paperwork.",
+    "For urgent medical help in the UK, use NHS 111. For life-threatening emergencies, call 999.",
+  ],
 };
 
 type AccessibilityCopy = {
@@ -267,6 +333,8 @@ type CopySource = {
   comparison?: Partial<ComparisonCopy>;
   accessibility?: Partial<AccessibilityCopy>;
   prescription?: Partial<Omit<PrescriptionCopy, "confidenceLabel">>;
+  carerSummary?: Partial<CarerSummaryCopy>;
+  nhsApp?: Partial<NhsAppCopy>;
 };
 
 const APP_LANGUAGE_META: Record<AppLanguage, { label: string; code: string; direction: LanguageDirection }> = {
@@ -386,6 +454,14 @@ function createCopy(source: CopySource) {
       ...source.prescription,
       confidenceLabel: (value: "high" | "medium" | "low") =>
         `${source[value]} ${source.confidence}`.trim(),
+    },
+    carerSummary: {
+      ...DEFAULT_CARER_SUMMARY_COPY,
+      ...source.carerSummary,
+    },
+    nhsApp: {
+      ...DEFAULT_NHS_APP_COPY,
+      ...source.nhsApp,
     },
     dashboard: {
       appointmentReadinessPack:

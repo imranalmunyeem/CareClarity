@@ -8,12 +8,14 @@ import {
   Clock3,
   Download,
   FileSearch,
+  FileText,
   HelpCircle,
   Languages,
   MapPin,
   Phone,
   ShieldCheck,
   Stethoscope,
+  UsersRound,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { AnalysisResult } from "../lib/analyzer";
@@ -26,6 +28,7 @@ import type { AppCopy } from "../lib/i18n";
 type IconType = typeof FileSearch;
 type DashboardCopy = AppCopy["dashboard"];
 type ExportCopy = AppCopy["export"];
+type CarerSummaryCopy = AppCopy["carerSummary"];
 
 type ExportButtonsProps = {
   copied: boolean;
@@ -41,6 +44,13 @@ type DashboardCardProps = {
   icon: IconType;
   children: ReactNode;
   className?: string;
+};
+
+type CarerSummaryCardProps = {
+  result: AnalysisResult;
+  copy: CarerSummaryCopy;
+  onDownloadTxt: () => void;
+  onDownloadPdf: () => void;
 };
 
 const readinessIcons: Record<AppointmentReadinessEssentialKey, IconType> = {
@@ -101,6 +111,56 @@ export function PlainEnglishCard({ result, copy }: { result: AnalysisResult; cop
         <p className="dashboard-summary">{result.patientDashboardSummary}</p>
         <p>{result.plainEnglishTranslation}</p>
         <span className="confidence-pill">{copy.confidenceLabel(result.confidence)}</span>
+      </div>
+    </DashboardCard>
+  );
+}
+
+export function CarerSummaryCard({
+  result,
+  copy,
+  onDownloadTxt,
+  onDownloadPdf,
+}: CarerSummaryCardProps) {
+  const info = result.structuredInformationExtraction;
+
+  return (
+    <DashboardCard title={copy.heading} poweredBy={copy.poweredBy} icon={UsersRound} className="carer-summary-card">
+      <div className="carer-summary">
+        <p>{copy.intro}</p>
+        <dl className="carer-summary-details">
+          <div>
+            <dt>Appointment date</dt>
+            <dd>{info.appointmentDate}</dd>
+          </div>
+          <div>
+            <dt>Appointment time</dt>
+            <dd>{info.appointmentTime}</dd>
+          </div>
+          <div>
+            <dt>Location</dt>
+            <dd>{info.location}</dd>
+          </div>
+          <div>
+            <dt>Contact info</dt>
+            <dd>{info.contactInfo}</dd>
+          </div>
+        </dl>
+        <p className="muted-note">{copy.detailsPreview}</p>
+        <div className="carer-summary-actions">
+          <button className="secondary-button" type="button" onClick={onDownloadTxt}>
+            <FileText size={18} aria-hidden="true" />
+            <span>{copy.downloadTxt}</span>
+          </button>
+          <button className="secondary-button" type="button" onClick={onDownloadPdf}>
+            <Download size={18} aria-hidden="true" />
+            <span>{copy.downloadPdf}</span>
+          </button>
+        </div>
+        <p className="carer-summary-safety">
+          <ShieldCheck size={16} aria-hidden="true" />
+          <span>{copy.safety}</span>
+        </p>
       </div>
     </DashboardCard>
   );
@@ -263,10 +323,28 @@ export function SafetyValidationCard({ result, copy }: { result: AnalysisResult;
   );
 }
 
-export function PatientDashboard({ result, copy }: { result: AnalysisResult; copy: DashboardCopy }) {
+export function PatientDashboard({
+  result,
+  copy,
+  carerCopy,
+  onDownloadCarerTxt,
+  onDownloadCarerPdf,
+}: {
+  result: AnalysisResult;
+  copy: DashboardCopy;
+  carerCopy: CarerSummaryCopy;
+  onDownloadCarerTxt: () => void;
+  onDownloadCarerPdf: () => void;
+}) {
   return (
     <div className="patient-dashboard">
       <AppointmentReadinessPackCard result={result} copy={copy} />
+      <CarerSummaryCard
+        result={result}
+        copy={carerCopy}
+        onDownloadTxt={onDownloadCarerTxt}
+        onDownloadPdf={onDownloadCarerPdf}
+      />
       <PlainEnglishCard result={result} copy={copy} />
       <SmartExtractionCard result={result} copy={copy} />
       <ActionChecklist result={result} copy={copy} />

@@ -12,6 +12,7 @@ import {
   Loader2,
   Pill,
   ShieldCheck,
+  Smartphone,
   Sparkles,
   Trash2,
   UploadCloud,
@@ -41,6 +42,7 @@ import {
   type AppCopy,
   type AppLanguage,
 } from "./lib/i18n";
+import { downloadCarerSummaryPdf, downloadCarerSummaryText } from "./lib/carerSummary";
 import { buildLetterComparison, type LetterComparisonResult } from "./lib/letterComparison";
 import { buildPrescriptionAdminHelper, type PrescriptionAdminHelperResult } from "./lib/prescriptionAdmin";
 import { requestProductChatAnswer } from "./lib/productChat";
@@ -149,6 +151,67 @@ function buildReadAloudText({
     .slice(0, 4200);
 }
 
+function ComparisonUploadControl({
+  id,
+  label,
+  files,
+  inputRef,
+  copy,
+  onChange,
+  onRemove,
+}: {
+  id: string;
+  label: string;
+  files: AttachedFile[];
+  inputRef: { current: HTMLInputElement | null };
+  copy: AppCopy;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="comparison-upload-control">
+      <input
+        ref={inputRef}
+        className="file-input"
+        id={id}
+        type="file"
+        accept="application/pdf,image/*,.pdf,.png,.jpg,.jpeg,.webp,.heic"
+        onChange={onChange}
+      />
+      <button className="secondary-button comparison-upload-button" type="button" onClick={() => inputRef.current?.click()}>
+        <UploadCloud size={18} aria-hidden="true" />
+        <span>{label}</span>
+      </button>
+      {files.length ? (
+        <ul className="attachment-list comparison-attachment-list" aria-label={label}>
+          {files.map((file) => (
+            <li key={file.id}>
+              {file.kind === "pdf" ? <FileCheck2 size={18} aria-hidden="true" /> : <ImageIcon size={18} aria-hidden="true" />}
+              <div>
+                <strong>{file.name}</strong>
+                <span>
+                  {file.kind === "pdf" ? copy.upload.pdf : copy.upload.image} - {formatBytes(file.size)}
+                </span>
+              </div>
+              <button
+                className="attachment-remove"
+                type="button"
+                onClick={onRemove}
+                title={copy.comparison.removeUploadedLetter}
+                aria-label={copy.comparison.removeUploadedLetter}
+              >
+                <X size={16} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="input-helper">{copy.comparison.uploadHelper}</p>
+      )}
+    </div>
+  );
+}
+
 function App() {
   const [appLanguage, setAppLanguage] = useState<AppLanguage>(() => readStoredAppLanguage());
   const [isAccessibilityMode, setIsAccessibilityMode] = useState(() => readStoredAccessibilityMode());
@@ -167,6 +230,8 @@ function App() {
   const [isTranslating, setIsTranslating] = useState(false);
   const [comparisonPreviousText, setComparisonPreviousText] = useState("");
   const [comparisonUpdatedText, setComparisonUpdatedText] = useState("");
+  const [comparisonPreviousFiles, setComparisonPreviousFiles] = useState<AttachedFile[]>([]);
+  const [comparisonUpdatedFiles, setComparisonUpdatedFiles] = useState<AttachedFile[]>([]);
   const [comparisonResult, setComparisonResult] = useState<LetterComparisonResult | null>(null);
   const [comparisonError, setComparisonError] = useState("");
   const [isComparingLetters, setIsComparingLetters] = useState(false);
@@ -181,6 +246,8 @@ function App() {
   const [copied, setCopied] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const comparisonPreviousFileInputRef = useRef<HTMLInputElement | null>(null);
+  const comparisonUpdatedFileInputRef = useRef<HTMLInputElement | null>(null);
   const actionMessageTimerRef = useRef<number | null>(null);
   const copy = getAppCopy(appLanguage);
   const appDirection = getAppLanguageDirection(appLanguage);
@@ -190,6 +257,8 @@ function App() {
     return copy.uploadPanel.textStats(letterText.length, words);
   }, [copy, letterText]);
   const hasAnalysisInput = Boolean(letterText.trim() || attachedFiles.length);
+  const hasPreviousComparisonInput = Boolean(comparisonPreviousText.trim().length >= 30 || comparisonPreviousFiles.length);
+  const hasUpdatedComparisonInput = Boolean(comparisonUpdatedText.trim().length >= 30 || comparisonUpdatedFiles.length);
   const hasPrescriptionInput = Boolean(prescriptionText.trim() || letterText.trim());
   const hasExportableResult = Boolean(result || translationResult || comparisonResult || prescriptionResult);
 
@@ -247,20 +316,7 @@ function App() {
     const acceptedFiles = await Promise.all(
       files
         .filter((file) => isSupportedAttachment(file) && file.size <= MAX_ATTACHMENT_BYTES)
-        .map(async (file) => {
-          const mimeType = getAttachmentMimeType(file);
-          const dataUrl = normalizeDataUrl(await readFileAsDataUrl(file), mimeType);
-
-          return {
-            id: `${file.name}-${file.size}-${file.lastModified}`,
-            name: file.name,
-            size: file.size,
-            type: file.type || mimeType,
-            mimeType,
-            dataUrl,
-            kind: isPdf(file) ? ("pdf" as const) : ("image" as const),
-          };
-        }),
+        .map(fileToAttachedFile),
     );
 
     if (!acceptedFiles.length) {
@@ -296,6 +352,49 @@ function App() {
   function removeAttachment(fileId: string) {
     setAttachedFiles((current) => current.filter((file) => file.id !== fileId));
     showActionMessage(copy.actions.attachmentRemoved);
+  }
+
+  async function handleComparisonFileChange(
+    side: "previous" | "updated",
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    if (!isSupportedAttachment(file)) {
+      showActionMessage(copy.actions.choosePdfOrImage);
+      return;
+    }
+
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      showActionMessage(copy.actions.chooseSmallFile);
+      return;
+    }
+
+    const attachedFile = await fileToAttachedFile(file);
+
+    if (side === "previous") {
+      setComparisonPreviousFiles([attachedFile]);
+    } else {
+      setComparisonUpdatedFiles([attachedFile]);
+    }
+
+    setComparisonError("");
+    showActionMessage(side === "previous" ? copy.comparison.previousFileReady : copy.comparison.updatedFileReady);
+  }
+
+  function removeComparisonFile(side: "previous" | "updated") {
+    if (side === "previous") {
+      setComparisonPreviousFiles([]);
+      if (comparisonPreviousFileInputRef.current) comparisonPreviousFileInputRef.current.value = "";
+    } else {
+      setComparisonUpdatedFiles([]);
+      if (comparisonUpdatedFileInputRef.current) comparisonUpdatedFileInputRef.current.value = "";
+    }
+
+    showActionMessage(copy.comparison.removeUploadedLetter);
   }
 
   async function handleExplainSentence() {
@@ -352,7 +451,7 @@ function App() {
     const previousText = comparisonPreviousText.trim();
     const updatedText = comparisonUpdatedText.trim();
 
-    if (previousText.length < 30 || updatedText.length < 30) {
+    if (!hasPreviousComparisonInput || !hasUpdatedComparisonInput) {
       setComparisonError(copy.comparison.needBothLetters);
       setComparisonResult(null);
       return;
@@ -366,8 +465,8 @@ function App() {
 
     try {
       const [previousAnalysis, updatedAnalysis] = await Promise.all([
-        requestAnalysis(previousText),
-        requestAnalysis(updatedText),
+        requestAnalysis(previousText, toAnalysisAttachments(comparisonPreviousFiles)),
+        requestAnalysis(updatedText, toAnalysisAttachments(comparisonUpdatedFiles)),
       ]);
       const comparison = buildLetterComparison(previousAnalysis, updatedAnalysis);
 
@@ -453,6 +552,18 @@ function App() {
       formatAnalysisAsText(result, translationResult, comparisonResult, prescriptionResult),
     );
     showActionMessage(copy.actions.downloadStarted);
+  }
+
+  function handleDownloadCarerTxt() {
+    if (!result) return;
+    downloadCarerSummaryText(result);
+    showActionMessage(copy.carerSummary.txtStarted);
+  }
+
+  function handleDownloadCarerPdf() {
+    if (!result) return;
+    downloadCarerSummaryPdf(result);
+    showActionMessage(copy.carerSummary.pdfStarted);
   }
 
   function handleAppLanguageChange(event: ChangeEvent<HTMLSelectElement>) {
@@ -666,6 +777,68 @@ function App() {
             </ul>
           </section>
 
+          <details className="compare-card nhs-app-card">
+            <summary>
+              <span className="sentence-icon nhs-app-icon" aria-hidden="true">
+                <Smartphone size={18} />
+              </span>
+              <span>
+                <strong>{copy.nhsApp.heading}</strong>
+                <small>{copy.nhsApp.intro}</small>
+              </span>
+            </summary>
+            <div className="nhs-app-guide">
+              <section>
+                <h4>{copy.nhsApp.beforeYouStart}</h4>
+                <ul className="dashboard-list">
+                  {copy.nhsApp.steps.slice(0, 1).map((step) => (
+                    <li key={step}>
+                      <CheckCircle2 size={18} aria-hidden="true" />
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+              <section>
+                <h4>{copy.nhsApp.findingAppointments}</h4>
+                <ul className="dashboard-list">
+                  {copy.nhsApp.steps.slice(1, 3).map((step) => (
+                    <li key={step}>
+                      <FileText size={18} aria-hidden="true" />
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+              <section>
+                <h4>{copy.nhsApp.findingPrescriptions}</h4>
+                <ul className="dashboard-list">
+                  {copy.nhsApp.steps.slice(3, 4).map((step) => (
+                    <li key={step}>
+                      <Pill size={18} aria-hidden="true" />
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+              <section>
+                <h4>{copy.nhsApp.ifDetailsDoNotMatch}</h4>
+                <ul className="dashboard-list warning">
+                  {copy.nhsApp.steps.slice(4).map((step) => (
+                    <li key={step}>
+                      <AlertTriangle size={18} aria-hidden="true" />
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+              <p className="comparison-safety">
+                <ShieldCheck size={16} aria-hidden="true" />
+                <span>{copy.nhsApp.safety}</span>
+              </p>
+            </div>
+          </details>
+
           <details
             className="compare-card"
             open={Boolean(comparisonPreviousText || comparisonUpdatedText || comparisonResult || comparisonError)}
@@ -695,6 +868,15 @@ function App() {
                       setComparisonError("");
                     }}
                   />
+                  <ComparisonUploadControl
+                    id="comparison-previous-upload"
+                    label={copy.comparison.previousUploadLabel}
+                    files={comparisonPreviousFiles}
+                    inputRef={comparisonPreviousFileInputRef}
+                    copy={copy}
+                    onChange={(event) => handleComparisonFileChange("previous", event)}
+                    onRemove={() => removeComparisonFile("previous")}
+                  />
                 </div>
                 <div>
                   <label className="field-label" htmlFor="comparison-updated-letter">
@@ -710,6 +892,15 @@ function App() {
                       setComparisonError("");
                     }}
                   />
+                  <ComparisonUploadControl
+                    id="comparison-updated-upload"
+                    label={copy.comparison.updatedUploadLabel}
+                    files={comparisonUpdatedFiles}
+                    inputRef={comparisonUpdatedFileInputRef}
+                    copy={copy}
+                    onChange={(event) => handleComparisonFileChange("updated", event)}
+                    onRemove={() => removeComparisonFile("updated")}
+                  />
                 </div>
               </div>
               <div className="compare-actions">
@@ -717,11 +908,7 @@ function App() {
                   className="secondary-button compare-button"
                   type="button"
                   onClick={handleCompareLetters}
-                  disabled={
-                    isComparingLetters ||
-                    comparisonPreviousText.trim().length < 30 ||
-                    comparisonUpdatedText.trim().length < 30
-                  }
+                  disabled={isComparingLetters || !hasPreviousComparisonInput || !hasUpdatedComparisonInput}
                 >
                   {isComparingLetters ? <Loader2 className="spin" size={18} /> : <GitCompareArrows size={18} />}
                   <span>{isComparingLetters ? copy.comparison.comparing : copy.comparison.compareButton}</span>
@@ -732,11 +919,22 @@ function App() {
                   onClick={() => {
                     setComparisonPreviousText("");
                     setComparisonUpdatedText("");
+                    setComparisonPreviousFiles([]);
+                    setComparisonUpdatedFiles([]);
                     setComparisonResult(null);
                     setComparisonError("");
+                    if (comparisonPreviousFileInputRef.current) comparisonPreviousFileInputRef.current.value = "";
+                    if (comparisonUpdatedFileInputRef.current) comparisonUpdatedFileInputRef.current.value = "";
                     showActionMessage(copy.comparison.clearButton);
                   }}
-                  disabled={isComparingLetters || (!comparisonPreviousText && !comparisonUpdatedText && !comparisonResult)}
+                  disabled={
+                    isComparingLetters ||
+                    (!comparisonPreviousText &&
+                      !comparisonUpdatedText &&
+                      !comparisonPreviousFiles.length &&
+                      !comparisonUpdatedFiles.length &&
+                      !comparisonResult)
+                  }
                 >
                   <span>{copy.comparison.clearButton}</span>
                 </button>
@@ -1040,6 +1238,8 @@ function App() {
                 setTranslationError("");
                 setComparisonPreviousText("");
                 setComparisonUpdatedText("");
+                setComparisonPreviousFiles([]);
+                setComparisonUpdatedFiles([]);
                 setComparisonResult(null);
                 setComparisonError("");
                 setPrescriptionText("");
@@ -1049,6 +1249,8 @@ function App() {
                 setChatHistory([]);
                 setChatError("");
                 if (fileInputRef.current) fileInputRef.current.value = "";
+                if (comparisonPreviousFileInputRef.current) comparisonPreviousFileInputRef.current.value = "";
+                if (comparisonUpdatedFileInputRef.current) comparisonUpdatedFileInputRef.current.value = "";
                 setResult(null);
                 setCopied(false);
                 showActionMessage(copy.actions.cleared);
@@ -1108,7 +1310,13 @@ function App() {
           ) : result ? (
             <>
               <ResultNotice result={result} copy={copy.results} />
-              <PatientDashboard result={result} copy={copy.dashboard} />
+              <PatientDashboard
+                result={result}
+                copy={copy.dashboard}
+                carerCopy={copy.carerSummary}
+                onDownloadCarerTxt={handleDownloadCarerTxt}
+                onDownloadCarerPdf={handleDownloadCarerPdf}
+              />
             </>
           ) : isAnalyzing || isComparingLetters ? (
             <div className="empty-state loading" aria-live="polite">
@@ -1210,6 +1418,21 @@ function getAttachmentMimeType(file: File): string {
   if (/\.gif$/i.test(file.name)) return "image/gif";
   if (/\.heic$/i.test(file.name)) return "image/heic";
   return "image/jpeg";
+}
+
+async function fileToAttachedFile(file: File): Promise<AttachedFile> {
+  const mimeType = getAttachmentMimeType(file);
+  const dataUrl = normalizeDataUrl(await readFileAsDataUrl(file), mimeType);
+
+  return {
+    id: `${file.name}-${file.size}-${file.lastModified}`,
+    name: file.name,
+    size: file.size,
+    type: file.type || mimeType,
+    mimeType,
+    dataUrl,
+    kind: isPdf(file) ? "pdf" : "image",
+  };
 }
 
 function readFileAsDataUrl(file: File): Promise<string> {

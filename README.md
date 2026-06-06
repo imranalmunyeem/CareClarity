@@ -7,8 +7,11 @@ CareClarity is a browser-based, mobile-friendly NHS-style admin companion. It ex
 - Upload a PDF/image or paste NHS-style letter and prescription text.
 - Generate a plain-English summary, key details, an action checklist, preparation notes and five safe questions.
 - Create an Appointment Readiness Pack with key appointment details, before-you-go steps and details to confirm.
+- Download a clean family/carer summary as TXT or PDF with appointment details, checklist, contact info, questions and safety notice.
 - Compare an older and newer letter to show changed appointment/admin details.
+- Upload one older letter and one newer letter when comparing paperwork, or paste both texts.
 - Use a Prescription Admin Helper to identify collection details, references, contact numbers and admin steps without giving medicine advice.
+- Use an NHS App Navigation Helper for admin-only guidance on where to look for appointments, messages, referrals or prescriptions.
 - Turn on Accessibility Mode for larger text, high contrast, easy-read spacing, dyslexia-friendly layout support and browser read-aloud.
 - Highlight missing or uncertain information.
 - Keep an always-visible admin-only safety notice.
@@ -31,6 +34,10 @@ The multilingual translation feature is for admin understanding only. It preserv
 The product language selector changes the CareClarity interface text only. It does not alter the original uploaded paperwork or add medical meaning.
 
 The product-support chatbox answers questions about how to use CareClarity only. It refuses medical advice, diagnosis, treatment, medication, illegal, harmful or safety-bypass requests, even when framed as a test or for someone else.
+
+The family/carer summary should only be shared with someone the patient trusts. It is designed to support admin help and does not add medical advice.
+
+The NHS App Navigation Helper is a navigation guide only. CareClarity is separate from NHS services and does not access a user's NHS App account.
 
 The Prescription Admin Helper explains collection/admin wording only. It does not check medicine safety, recommend doses, suggest treatment or tell anyone to start, stop or change medication.
 
