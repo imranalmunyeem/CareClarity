@@ -1,0 +1,19 @@
+<svg width="720" height="420" viewBox="0 0 720 420" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Synthetic appointment letter preview</title>
+  <desc id="desc">A stylized healthcare appointment letter with highlighted date, location and contact lines.</desc>
+  <rect width="720" height="420" rx="8" fill="#F5F7FA"/>
+  <rect x="152" y="28" width="416" height="364" rx="8" fill="white" stroke="#CCD8E3" stroke-width="2"/>
+  <rect x="188" y="64" width="112" height="18" rx="4" fill="#047C7A"/>
+  <rect x="188" y="98" width="256" height="10" rx="5" fill="#CBD5DF"/>
+  <rect x="188" y="120" width="302" height="10" rx="5" fill="#E0E6EC"/>
+  <rect x="188" y="154" width="210" height="12" rx="6" fill="#18202A"/>
+  <rect x="188" y="187" width="344" height="42" rx="8" fill="#EAF7F4" stroke="#7AC1B5"/>
+  <rect x="210" y="201" width="132" height="10" rx="5" fill="#047C7A"/>
+  <rect x="358" y="201" width="112" height="10" rx="5" fill="#3D7B50"/>
+  <rect x="188" y="248" width="292" height="10" rx="5" fill="#D7DEE6"/>
+  <rect x="188" y="270" width="242" height="10" rx="5" fill="#D7DEE6"/>
+  <rect x="188" y="292" width="306" height="10" rx="5" fill="#D7DEE6"/>
+  <rect x="188" y="328" width="156" height="30" rx="8" fill="#FFF3DA" stroke="#DDA84A"/>
+  <circle cx="522" cy="84" r="14" fill="#335C81"/>
+  <path d="M516 84.5L520.5 89L529 79.5" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
