@@ -455,7 +455,8 @@ button:focus-visible {
 }
 
 .button-row,
-.result-actions {
+.result-actions,
+.export-buttons {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -549,6 +550,210 @@ button:focus-visible {
 
 .results-topbar {
   margin-bottom: 12px;
+}
+
+.dashboard-shell {
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.dashboard-shell .results-topbar {
+  min-height: 52px;
+  margin-bottom: 12px;
+}
+
+.patient-dashboard {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.dashboard-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.dashboard-card-header {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.dashboard-card-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #eaf7f4;
+  color: var(--teal);
+}
+
+.dashboard-card-header p {
+  margin-top: 3px;
+  color: var(--blue);
+  font-size: 0.82rem;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.extraction-grid {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+}
+
+.extraction-item {
+  display: grid;
+  gap: 4px;
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+}
+
+.extraction-item:first-child {
+  border-top: 0;
+}
+
+.extraction-item dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.extraction-item dd {
+  margin: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.plain-card {
+  display: grid;
+  gap: 10px;
+  line-height: 1.55;
+}
+
+.dashboard-summary {
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.confidence-pill,
+.safety-status {
+  width: fit-content;
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: #eef5fb;
+  color: var(--blue);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.dashboard-list,
+.dashboard-action-list {
+  display: grid;
+  gap: 9px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.dashboard-list li,
+.dashboard-action-list li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  line-height: 1.48;
+}
+
+.dashboard-list svg,
+.dashboard-action-list svg {
+  margin-top: 2px;
+  color: var(--teal);
+}
+
+.dashboard-list.warning svg {
+  color: var(--amber);
+}
+
+.dashboard-action-list strong {
+  display: block;
+  line-height: 1.4;
+}
+
+.dashboard-action-list span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.dashboard-action-list em {
+  grid-column: 2;
+  width: fit-content;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: #eaf7f4;
+  color: var(--teal-dark);
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.verify-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.verify-stack h4 {
+  margin: 0 0 8px;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.safety-card.safe {
+  border-color: #a9d6d1;
+}
+
+.safety-card.unsafe {
+  border-color: #e6b7c0;
+}
+
+.safety-validation {
+  display: grid;
+  gap: 10px;
+}
+
+.safety-status.safe {
+  background: #eaf7f4;
+  color: var(--teal-dark);
+}
+
+.safety-status.unsafe {
+  background: #fff6f8;
+  color: var(--rose);
+}
+
+.muted-note {
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 .tab-list {
@@ -809,9 +1014,38 @@ button:focus-visible {
   }
 }
 
+@media (min-width: 860px) {
+  .patient-dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-card:first-child,
+  .safety-card {
+    grid-column: 1 / -1;
+  }
+
+  .extraction-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 14px;
+  }
+
+  .extraction-item:nth-child(2) {
+    border-top: 0;
+  }
+
+  .dashboard-action-list li {
+    grid-template-columns: 24px minmax(0, 1fr) minmax(104px, auto);
+  }
+
+  .dashboard-action-list em {
+    grid-column: auto;
+    justify-self: end;
+  }
+}
+
 @media (max-width: 760px) {
   .sticky-frame {
-    position: static;
+    position: sticky;
   }
 
   .safety-banner {
@@ -861,6 +1095,10 @@ button:focus-visible {
   .input-panel,
   .results-panel {
     padding: 14px;
+  }
+
+  .dashboard-shell {
+    padding: 0;
   }
 
   .panel-heading,
@@ -971,6 +1209,10 @@ button:focus-visible {
   }
 
   .result-actions {
+    gap: 8px;
+  }
+
+  .export-buttons {
     gap: 8px;
   }
 

@@ -1,15 +1,9 @@
 import {
   AlertTriangle,
-  CalendarDays,
   CheckCircle2,
-  CheckSquare,
-  Clipboard,
-  ClipboardCheck,
   Database,
-  Download,
   FileCheck2,
   FileText,
-  HelpCircle,
   Image as ImageIcon,
   LockKeyhole,
   Loader2,
@@ -21,11 +15,10 @@ import {
   X,
 } from "lucide-react";
 import { useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { ExportButtons, PatientDashboard } from "./components/PatientDashboard";
 import { requestAnalysis, type AnalysisResult } from "./lib/analyzer";
 import type { AIAnalysisAttachment } from "./lib/analysisSchema";
 import { downloadTextFile, formatAnalysisAsText } from "./lib/format";
-
-type ResultTab = "summary" | "actions" | "prep" | "safety";
 
 interface AttachedFile {
   id: string;
@@ -37,13 +30,6 @@ interface AttachedFile {
   kind: "pdf" | "image";
 }
 
-const tabs: Array<{ id: ResultTab; label: string; icon: typeof FileText }> = [
-  { id: "summary", label: "Summary", icon: FileText },
-  { id: "actions", label: "Actions", icon: CheckSquare },
-  { id: "prep", label: "Prep", icon: CalendarDays },
-  { id: "safety", label: "Safety", icon: ShieldCheck },
-];
-
 const MAX_ATTACHMENTS = 4;
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 
@@ -51,7 +37,6 @@ function App() {
   const [letterText, setLetterText] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [result, setResult] = useState<AnalysisResult | null>(null);
-  const [activeTab, setActiveTab] = useState<ResultTab>("summary");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
@@ -77,7 +62,6 @@ function App() {
     try {
       const analysis = await requestAnalysis(letterText, toAnalysisAttachments(attachedFiles));
       setResult(analysis);
-      setActiveTab("summary");
       showActionMessage(
         analysis.mode === "ai" ? "Z.AI analysis completed server-side." : "Safe fallback result is ready.",
       );
@@ -177,15 +161,6 @@ function App() {
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     fileInputRef.current?.click();
-  }
-
-  function handleTabKeyDown(event: KeyboardEvent<HTMLButtonElement>, currentTab: ResultTab) {
-    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
-    event.preventDefault();
-    const currentIndex = tabs.findIndex((tab) => tab.id === currentTab);
-    const direction = event.key === "ArrowRight" ? 1 : -1;
-    const nextTab = tabs[(currentIndex + direction + tabs.length) % tabs.length];
-    setActiveTab(nextTab.id);
   }
 
   function showActionMessage(message: string) {
@@ -375,78 +350,22 @@ function App() {
         </section>
 
         <section
-          className="tool-panel results-panel"
+          className="results-panel dashboard-shell"
           aria-labelledby="results-heading"
           aria-busy={isAnalyzing}
         >
           <div className="results-topbar">
             <div>
-              <h2 id="results-heading">Result</h2>
+              <h2 id="results-heading">Patient Dashboard</h2>
               <p>{result ? resultModeLabel(result) : "No analysis yet"}</p>
             </div>
-            <div className="result-actions">
-              <button
-                className="icon-button"
-                type="button"
-                onClick={handleCopy}
-                disabled={!result}
-                title="Copy result"
-                aria-label="Copy result"
-              >
-                {copied ? <ClipboardCheck size={18} /> : <Clipboard size={18} />}
-              </button>
-              <button
-                className="icon-button"
-                type="button"
-                onClick={handleDownload}
-                disabled={!result}
-                title="Download result"
-                aria-label="Download result"
-              >
-                <Download size={18} />
-              </button>
-            </div>
+            <ExportButtons copied={copied} disabled={!result} onCopy={handleCopy} onDownload={handleDownload} />
           </div>
 
           {result ? (
             <>
               <ResultNotice result={result} />
-
-              <div className="tab-list" role="tablist" aria-label="Analysis result sections">
-                {tabs.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = activeTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      className={isActive ? "tab-button active" : "tab-button"}
-                      type="button"
-                      role="tab"
-                      id={`${tab.id}-tab`}
-                      aria-controls={`${tab.id}-panel`}
-                      aria-selected={isActive}
-                      tabIndex={isActive ? 0 : -1}
-                      onClick={() => setActiveTab(tab.id)}
-                      onKeyDown={(event) => handleTabKeyDown(event, tab.id)}
-                    >
-                      <Icon size={16} />
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div
-                className="tab-panel"
-                role="tabpanel"
-                id={`${activeTab}-panel`}
-                aria-labelledby={`${activeTab}-tab`}
-              >
-                {activeTab === "summary" && <SummaryView result={result} />}
-                {activeTab === "actions" && <ActionsView result={result} />}
-                {activeTab === "prep" && <PrepView result={result} />}
-                {activeTab === "safety" && <SafetyView result={result} />}
-              </div>
+              <PatientDashboard result={result} />
             </>
           ) : isAnalyzing ? (
             <div className="empty-state loading" aria-live="polite">
@@ -478,36 +397,6 @@ function ActionStatus({ message }: { message: string }) {
   );
 }
 
-function SummaryView({ result }: { result: AnalysisResult }) {
-  return (
-    <div className="result-stack">
-      <section className="result-section">
-        <h3>Plain-English Summary</h3>
-        <ul className="clean-list">
-          {result.summary.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="result-section">
-        <h3>Key Admin Details</h3>
-        <div className="detail-grid">
-          {result.details.map((detail) => (
-            <article key={`${detail.label}-${detail.value}`} className="detail-item">
-              <div>
-                <span>{detail.label}</span>
-                <strong>{detail.value}</strong>
-              </div>
-              <small>{detail.confidence} confidence</small>
-            </article>
-          ))}
-        </div>
-      </section>
-    </div>
-  );
-}
-
 function ResultNotice({ result }: { result: AnalysisResult }) {
   if (result.mode === "ai") {
     return (
@@ -525,88 +414,6 @@ function ResultNotice({ result }: { result: AnalysisResult }) {
         {result.fallbackReason ?? "A safe fallback result is being used."} The app still applies the same admin-only safety
         rules.
       </span>
-    </div>
-  );
-}
-
-function ActionsView({ result }: { result: AnalysisResult }) {
-  return (
-    <div className="result-stack">
-      <section className="result-section">
-        <h3>Action Checklist</h3>
-        <ul className="action-list">
-          {result.checklist.map((item) => (
-            <li key={item.task}>
-              <CheckSquare size={18} />
-              <div>
-                <strong>{item.task}</strong>
-                {item.reason ? <span>{item.reason}</span> : null}
-              </div>
-              <em>{item.timing}</em>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </div>
-  );
-}
-
-function PrepView({ result }: { result: AnalysisResult }) {
-  return (
-    <div className="result-stack">
-      <section className="result-section">
-        <h3>Appointment Preparation</h3>
-        <ul className="prep-list">
-          {result.preparationNotes.map((item) => (
-            <li key={item}>
-              <CalendarDays size={18} />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="result-section">
-        <h3>Five Safe Questions</h3>
-        <ol className="question-list">
-          {result.clinicianQuestions.map((question) => (
-            <li key={question}>
-              <HelpCircle size={18} />
-              <span>{question}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
-    </div>
-  );
-}
-
-function SafetyView({ result }: { result: AnalysisResult }) {
-  return (
-    <div className="result-stack">
-      <section className="result-section">
-        <h3>Missing Or Unclear</h3>
-        <ul className="warning-list">
-          {result.missingOrUnclear.map((item) => (
-            <li key={item}>
-              <AlertTriangle size={18} />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="result-section">
-        <h3>Safety Boundary</h3>
-        <ul className="safety-list">
-          {result.safetyNotes.map((item) => (
-            <li key={item}>
-              <ShieldCheck size={18} />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
     </div>
   );
 }
