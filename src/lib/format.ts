@@ -1,7 +1,12 @@
 import type { AnalysisResult } from "./analyzer";
+import type { TranslationResponse } from "./translationSchema";
 
-export function formatAnalysisAsText(result: AnalysisResult): string {
-  const lines = [
+export function formatAnalysisAsText(
+  result: AnalysisResult | null,
+  translation?: TranslationResponse | null,
+): string {
+  const lines = result
+    ? [
     "CareClarity admin summary",
     `Generated: ${new Date(result.generatedAt).toLocaleString()}`,
     `Mode: ${result.mode === "ai" ? "Z.AI endpoint" : "Safe fallback"}`,
@@ -51,7 +56,30 @@ export function formatAnalysisAsText(result: AnalysisResult): string {
     ...result.safetyNotes.map((item) => `- ${item}`),
     "",
     `Confidence: ${result.confidence}`,
-  ];
+      ]
+    : ["CareClarity admin summary", `Generated: ${new Date().toLocaleString()}`];
+
+  if (translation) {
+    lines.push(
+      "",
+      "Translated letter",
+      `Language: ${translation.targetLanguage}`,
+      "",
+      translation.translatedLetter,
+      "",
+      "Important admin terms",
+      ...translation.importantTerms.map(
+        (term) => `- ${term.originalTerm}: ${term.translatedOrExplainedMeaning}`,
+      ),
+      "",
+      "Translation notes",
+      ...translation.translationNotes.map((note) => `- ${note}`),
+      "",
+      "Translation safety",
+      translation.safetyNotice,
+      `Translation confidence: ${translation.confidence}`,
+    );
+  }
 
   return lines.join("\n");
 }

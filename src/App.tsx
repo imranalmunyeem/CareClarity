@@ -5,6 +5,7 @@ import {
   FileCheck2,
   FileText,
   Image as ImageIcon,
+  Languages,
   LockKeyhole,
   Loader2,
   ShieldCheck,
@@ -21,6 +22,12 @@ import type { AIAnalysisAttachment } from "./lib/analysisSchema";
 import { downloadTextFile, formatAnalysisAsText } from "./lib/format";
 import { requestSentenceExplanation } from "./lib/sentenceExplainer";
 import type { ExplainSentenceResponse } from "./lib/sentenceExplainerSchema";
+import { requestLetterTranslation } from "./lib/translator";
+import {
+  SUPPORTED_TRANSLATION_LANGUAGES,
+  type SupportedTranslationLanguage,
+  type TranslationResponse,
+} from "./lib/translationSchema";
 
 interface AttachedFile {
   id: string;
@@ -44,6 +51,10 @@ function App() {
   const [sentenceResult, setSentenceResult] = useState<ExplainSentenceResponse | null>(null);
   const [sentenceError, setSentenceError] = useState("");
   const [isExplainingSentence, setIsExplainingSentence] = useState(false);
+  const [targetLanguage, setTargetLanguage] = useState<SupportedTranslationLanguage>("Bengali");
+  const [translationResult, setTranslationResult] = useState<TranslationResponse | null>(null);
+  const [translationError, setTranslationError] = useState("");
+  const [isTranslating, setIsTranslating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -169,9 +180,34 @@ function App() {
     }
   }
 
+  async function handleTranslateLetter() {
+    const text = letterText.trim();
+
+    if (text.length < 30) {
+      setTranslationError("Paste at least a few lines of letter text before translation.");
+      setTranslationResult(null);
+      return;
+    }
+
+    setIsTranslating(true);
+    setTranslationError("");
+    setTranslationResult(null);
+    showActionMessage(`Translating letter into ${targetLanguage}.`);
+
+    try {
+      const translation = await requestLetterTranslation(text, targetLanguage);
+      setTranslationResult(translation);
+      showActionMessage(`${translation.targetLanguage} translation is ready.`);
+    } catch (error) {
+      setTranslationError(error instanceof Error ? error.message : "Translation is unavailable right now.");
+    } finally {
+      setIsTranslating(false);
+    }
+  }
+
   async function handleCopy() {
-    if (!result) return;
-    const didCopy = await copyText(formatAnalysisAsText(result));
+    if (!result && !translationResult) return;
+    const didCopy = await copyText(formatAnalysisAsText(result, translationResult));
     if (didCopy) {
       setCopied(true);
       showActionMessage("Result copied to clipboard.");
@@ -183,8 +219,8 @@ function App() {
   }
 
   function handleDownload() {
-    if (!result) return;
-    downloadTextFile("careclarity-summary.txt", formatAnalysisAsText(result));
+    if (!result && !translationResult) return;
+    downloadTextFile("careclarity-summary.txt", formatAnalysisAsText(result, translationResult));
     showActionMessage("Text download started.");
   }
 
@@ -353,6 +389,88 @@ function App() {
             ) : null}
           </section>
 
+          <section className="translation-card" aria-labelledby="translation-heading">
+            <div className="sentence-heading">
+              <span className="sentence-icon translation-icon" aria-hidden="true">
+                <Languages size={18} />
+              </span>
+              <div>
+                <h3 id="translation-heading">Translate Letter</h3>
+                <p>Z.AI translates pasted healthcare admin text while preserving dates, places and instructions.</p>
+              </div>
+            </div>
+            <div className="translation-controls">
+              <div>
+                <label className="field-label" htmlFor="translation-language">
+                  Preferred language
+                </label>
+                <select
+                  id="translation-language"
+                  value={targetLanguage}
+                  onChange={(event) => {
+                    setTargetLanguage(event.target.value as SupportedTranslationLanguage);
+                    setTranslationError("");
+                  }}
+                >
+                  {SUPPORTED_TRANSLATION_LANGUAGES.map((language) => (
+                    <option key={language} value={language}>
+                      {language}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                className="secondary-button translate-button"
+                type="button"
+                onClick={handleTranslateLetter}
+                disabled={isTranslating || letterText.trim().length < 30}
+              >
+                {isTranslating ? <Loader2 className="spin" size={18} /> : <Languages size={18} />}
+                <span>{isTranslating ? "Translating" : "Translate letter"}</span>
+              </button>
+            </div>
+            {translationError ? (
+              <p className="sentence-error" role="alert">
+                {translationError}
+              </p>
+            ) : null}
+            {translationResult ? (
+              <div className="translation-result" aria-live="polite">
+                <header>
+                  <span>{translationResult.targetLanguage}</span>
+                  <strong>{translationResult.confidence} confidence</strong>
+                </header>
+                <section>
+                  <h4>Translated letter</h4>
+                  <p>{translationResult.translatedLetter}</p>
+                </section>
+                <section>
+                  <h4>Important admin terms</h4>
+                  <ul>
+                    {translationResult.importantTerms.map((term) => (
+                      <li key={`${term.originalTerm}-${term.translatedOrExplainedMeaning}`}>
+                        <strong>{term.originalTerm}</strong>
+                        <span>{term.translatedOrExplainedMeaning}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+                <section>
+                  <h4>Translation notes</h4>
+                  <ul>
+                    {translationResult.translationNotes.map((note) => (
+                      <li key={note}>{note}</li>
+                    ))}
+                  </ul>
+                </section>
+                <p className="translation-safety">
+                  <ShieldCheck size={16} aria-hidden="true" />
+                  <span>{translationResult.safetyNotice}</span>
+                </p>
+              </div>
+            ) : null}
+          </section>
+
           <section className="upload-block" aria-labelledby="upload-heading">
             <div className="upload-copy">
               <h3 id="upload-heading">Upload a prescription or letter</h3>
@@ -434,6 +552,8 @@ function App() {
                 setSentenceText("");
                 setSentenceResult(null);
                 setSentenceError("");
+                setTranslationResult(null);
+                setTranslationError("");
                 if (fileInputRef.current) fileInputRef.current.value = "";
                 setResult(null);
                 setCopied(false);
@@ -456,9 +576,20 @@ function App() {
           <div className="results-topbar">
             <div>
               <h2 id="results-heading">Patient Dashboard</h2>
-              <p>{result ? resultModeLabel(result) : "No analysis yet"}</p>
+              <p>
+                {result
+                  ? resultModeLabel(result)
+                  : translationResult
+                    ? `${translationResult.targetLanguage} translation ready`
+                    : "No analysis yet"}
+              </p>
             </div>
-            <ExportButtons copied={copied} disabled={!result} onCopy={handleCopy} onDownload={handleDownload} />
+            <ExportButtons
+              copied={copied}
+              disabled={!result && !translationResult}
+              onCopy={handleCopy}
+              onDownload={handleDownload}
+            />
           </div>
 
           {result ? (

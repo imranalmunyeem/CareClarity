@@ -9,6 +9,7 @@ CareClarity is a browser-based, mobile-friendly NHS-style admin companion. It ex
 - Highlight missing or uncertain information.
 - Keep an always-visible admin-only safety notice.
 - Analyze prescription or letter files in PDF/image format.
+- Translate pasted healthcare admin letters into supported languages with Z.AI-powered translation.
 - Copy or download the result as `.txt`.
 - Show a safe fallback result if Z.AI is unavailable.
 - Use the prototype without login, registration or stored patient records.
@@ -18,6 +19,8 @@ CareClarity is a browser-based, mobile-friendly NHS-style admin companion. It ex
 CareClarity is designed as an admin-support prototype, not a medical chatbot. It does not diagnose conditions, recommend medicines, change treatment plans or replace NHS clinicians, GP practices or pharmacists.
 
 Patients do not need to create an account. Uploaded PDFs/images and pasted text are used for the analysis request only and are not saved to a backend database by CareClarity.
+
+The multilingual translation feature is for admin understanding only. It preserves dates, times, locations, phone numbers, clinic names and appointment instructions as closely as possible, but it is not medical advice and should not be used to make diagnosis, treatment or medication decisions.
 
 The `ZAI_API_KEY` must stay server-side and must never be exposed as a public frontend variable.
 
@@ -53,10 +56,13 @@ The app calls server-side endpoints for AI analysis and falls back to the safe l
 Endpoint hardening:
 
 - `POST /api/analyze` validates input before calling Z.AI.
+- `POST /api/translate-letter` validates pasted letter text and target language before calling Z.AI.
 - Responses use `Cache-Control: no-store`.
 - `ZAI_BASE_URL` must resolve to `https://api.z.ai/`.
 - Z.AI responses are validated with Zod before being returned to the app.
 - Invalid or empty Z.AI responses safely fall back to local admin-only analysis.
+
+Translation supports Bengali, Urdu, Arabic, Polish, Romanian, Punjabi, Hindi, Gujarati, Somali, Spanish, French, Chinese and Ukrainian. If Z.AI is unavailable, CareClarity returns a safe fallback instead of guessing a translation.
 
 Use these environment variables:
 

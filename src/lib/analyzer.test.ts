@@ -3,7 +3,14 @@ import { sampleLetters } from "../data/samples";
 import { analyzeLetterLocally } from "./analyzer";
 import { analysisRequestSchema, analysisResponseSchema } from "./analysisSchema";
 import { buildMockSentenceExplanation } from "../server/explainSentenceCore";
+import { translateLetterPayload } from "../server/translateLetterCore";
+import { buildMockTranslationResponse } from "./mockTranslationResponse";
 import { explainSentenceRequestSchema, explainSentenceResponseSchema } from "./sentenceExplainerSchema";
+import {
+  translationRequestSchema,
+  translationSchema,
+  type TranslationResponse,
+} from "./translationSchema";
 
 describe("CareClarity safety flow", () => {
   it("keeps prescription paperwork in an admin-only safety boundary", () => {
@@ -61,5 +68,65 @@ describe("CareClarity safety flow", () => {
     expect(() => explainSentenceResponseSchema.parse(result)).not.toThrow();
     expect(result.originalSentence).toBe(sentence);
     expect(result.safetyNotice).toContain("does not provide diagnosis");
+  });
+
+  it("validates translation schema responses", () => {
+    const validResponse: TranslationResponse = {
+      targetLanguage: "Bengali",
+      translatedLetter: "Translated administrative letter text.",
+      importantTerms: [
+        {
+          originalTerm: "appointment",
+          translatedOrExplainedMeaning: "Booked time to attend or contact a service.",
+        },
+      ],
+      translationNotes: ["Dates and phone numbers are preserved."],
+      safetyNotice:
+        "This tool translates and explains administrative information only and does not provide medical advice.",
+      confidence: "high",
+    };
+
+    expect(translationSchema.safeParse(validResponse).success).toBe(true);
+    expect(translationSchema.safeParse({ ...validResponse, confidence: "certain" }).success).toBe(false);
+  });
+
+  it("validates mock translation response and safety notice", () => {
+    const response = buildMockTranslationResponse(sampleLetters[0].text, "Urdu");
+
+    expect(() => translationSchema.parse(response)).not.toThrow();
+    expect(response.targetLanguage).toBe("Urdu");
+    expect(response.safetyNotice).toContain("does not provide medical advice");
+  });
+
+  it("rejects unsupported translation languages", () => {
+    expect(
+      translationRequestSchema.safeParse({
+        letterText: sampleLetters[0].text,
+        targetLanguage: "Klingon",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("returns API fallback translation when Z.AI is unavailable", async () => {
+    const previousKey = process.env.ZAI_API_KEY;
+    delete process.env.ZAI_API_KEY;
+
+    try {
+      const response = await translateLetterPayload({
+        letterText: sampleLetters[0].text,
+        targetLanguage: "Spanish",
+      });
+
+      expect(response.status).toBe(200);
+      expect("translatedLetter" in response.body).toBe(true);
+      expect(response.body).toMatchObject({
+        targetLanguage: "Spanish",
+        confidence: "low",
+      });
+    } finally {
+      if (previousKey) {
+        process.env.ZAI_API_KEY = previousKey;
+      }
+    }
   });
 });

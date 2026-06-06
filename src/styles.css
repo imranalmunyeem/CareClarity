@@ -285,7 +285,8 @@ button:focus-visible {
 
 .trust-block,
 .upload-block,
-.sentence-card {
+.sentence-card,
+.translation-card {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
@@ -341,7 +342,8 @@ button:focus-visible {
   color: var(--green);
 }
 
-.sentence-card {
+.sentence-card,
+.translation-card {
   display: grid;
   gap: 10px;
 }
@@ -362,6 +364,11 @@ button:focus-visible {
   border-radius: 8px;
   background: #eef5fb;
   color: var(--blue);
+}
+
+.translation-icon {
+  background: #eaf7f4;
+  color: var(--teal);
 }
 
 .sentence-heading p {
@@ -431,6 +438,105 @@ button:focus-visible {
 }
 
 .sentence-result svg {
+  margin-top: 1px;
+  color: var(--teal);
+}
+
+.translation-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.translate-button {
+  min-width: 168px;
+}
+
+.translation-result {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #a9d6d1;
+  border-radius: 8px;
+  background: #fbfefd;
+}
+
+.translation-result header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.translation-result header span,
+.translation-result header strong {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.translation-result header span {
+  background: #eaf7f4;
+  color: var(--teal-dark);
+}
+
+.translation-result header strong {
+  background: #eef5fb;
+  color: var(--blue);
+  text-transform: capitalize;
+}
+
+.translation-result h4 {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.translation-result p,
+.translation-result li {
+  line-height: 1.5;
+}
+
+.translation-result ul {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.translation-result li {
+  display: grid;
+  gap: 3px;
+}
+
+.translation-result li strong {
+  color: var(--ink);
+}
+
+.translation-result li span {
+  color: var(--muted);
+}
+
+.translation-safety {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  color: var(--teal-dark);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.translation-safety svg {
   margin-top: 1px;
   color: var(--teal);
 }
@@ -1222,6 +1328,15 @@ button:focus-visible {
 
   .trust-list {
     grid-template-columns: 1fr;
+  }
+
+  .translation-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .translate-button {
+    width: 100%;
+    min-width: 0;
   }
 
   .primary-button,
