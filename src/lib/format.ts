@@ -1,10 +1,12 @@
 import type { AnalysisResult } from "./analyzer";
 import { buildAppointmentReadinessPack } from "./appointmentReadiness";
+import type { LetterComparisonResult } from "./letterComparison";
 import type { TranslationResponse } from "./translationSchema";
 
 export function formatAnalysisAsText(
   result: AnalysisResult | null,
   translation?: TranslationResponse | null,
+  comparison?: LetterComparisonResult | null,
 ): string {
   const readinessPack = result ? buildAppointmentReadinessPack(result) : null;
   const lines = result
@@ -96,6 +98,36 @@ export function formatAnalysisAsText(
       "Translation safety",
       translation.safetyNotice,
       `Translation confidence: ${translation.confidence}`,
+    );
+  }
+
+  if (comparison) {
+    lines.push(
+      "",
+      "What changed letter comparison",
+      `Compared: ${new Date(comparison.comparedAt).toLocaleString()}`,
+      comparison.summary,
+      "",
+      "Changed admin details",
+      ...comparison.fields
+        .filter((field) => field.changed)
+        .map((field) => `- ${field.key}: ${field.before} -> ${field.after}`),
+      "",
+      "New actions in newer letter",
+      ...(comparison.actionChanges.added.length
+        ? comparison.actionChanges.added.map((item) => `- ${item}`)
+        : ["- None found"]),
+      "",
+      "Actions no longer found",
+      ...(comparison.actionChanges.removed.length
+        ? comparison.actionChanges.removed.map((item) => `- ${item}`)
+        : ["- None found"]),
+      "",
+      "Details to check before acting",
+      ...comparison.detailsToCheck.map((item) => `- ${item}`),
+      "",
+      "Comparison safety",
+      comparison.safetyNotice,
     );
   }
 

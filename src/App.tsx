@@ -4,6 +4,7 @@ import {
   Database,
   FileCheck2,
   FileText,
+  GitCompareArrows,
   Image as ImageIcon,
   Languages,
   LockKeyhole,
@@ -16,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { LetterComparisonDashboard } from "./components/LetterComparisonDashboard";
 import { ExportButtons, PatientDashboard } from "./components/PatientDashboard";
 import { ProductChatWidget } from "./components/ProductChatWidget";
 import { requestAnalysis, type AnalysisResult } from "./lib/analyzer";
@@ -34,6 +36,7 @@ import {
   type AppCopy,
   type AppLanguage,
 } from "./lib/i18n";
+import { buildLetterComparison, type LetterComparisonResult } from "./lib/letterComparison";
 import { requestProductChatAnswer } from "./lib/productChat";
 import type { ProductChatMessage } from "./lib/productChatSchema";
 import { requestSentenceExplanation } from "./lib/sentenceExplainer";
@@ -72,6 +75,11 @@ function App() {
   const [translationResult, setTranslationResult] = useState<TranslationResponse | null>(null);
   const [translationError, setTranslationError] = useState("");
   const [isTranslating, setIsTranslating] = useState(false);
+  const [comparisonPreviousText, setComparisonPreviousText] = useState("");
+  const [comparisonUpdatedText, setComparisonUpdatedText] = useState("");
+  const [comparisonResult, setComparisonResult] = useState<LetterComparisonResult | null>(null);
+  const [comparisonError, setComparisonError] = useState("");
+  const [isComparingLetters, setIsComparingLetters] = useState(false);
   const [chatQuestion, setChatQuestion] = useState("");
   const [chatHistory, setChatHistory] = useState<ProductChatMessage[]>([]);
   const [chatError, setChatError] = useState("");
@@ -89,6 +97,7 @@ function App() {
     return copy.uploadPanel.textStats(letterText.length, words);
   }, [copy, letterText]);
   const hasAnalysisInput = Boolean(letterText.trim() || attachedFiles.length);
+  const hasExportableResult = Boolean(result || translationResult || comparisonResult);
 
   useEffect(() => {
     document.documentElement.lang = getAppLanguageCode(appLanguage);
@@ -108,6 +117,7 @@ function App() {
     try {
       const analysis = await requestAnalysis(letterText, toAnalysisAttachments(attachedFiles));
       setResult(analysis);
+      setComparisonResult(null);
       showActionMessage(analysis.mode === "ai" ? copy.actions.aiCompleted : copy.actions.fallbackReady);
     } finally {
       setIsAnalyzing(false);
@@ -225,6 +235,39 @@ function App() {
     }
   }
 
+  async function handleCompareLetters() {
+    const previousText = comparisonPreviousText.trim();
+    const updatedText = comparisonUpdatedText.trim();
+
+    if (previousText.length < 30 || updatedText.length < 30) {
+      setComparisonError(copy.comparison.needBothLetters);
+      setComparisonResult(null);
+      return;
+    }
+
+    setIsComparingLetters(true);
+    setComparisonError("");
+    setComparisonResult(null);
+    setCopied(false);
+    showActionMessage(copy.comparison.started);
+
+    try {
+      const [previousAnalysis, updatedAnalysis] = await Promise.all([
+        requestAnalysis(previousText),
+        requestAnalysis(updatedText),
+      ]);
+      const comparison = buildLetterComparison(previousAnalysis, updatedAnalysis);
+
+      setResult(null);
+      setComparisonResult(comparison);
+      showActionMessage(copy.comparison.ready);
+    } catch {
+      setComparisonError(copy.comparison.unavailable);
+    } finally {
+      setIsComparingLetters(false);
+    }
+  }
+
   async function handleProductChat() {
     const question = chatQuestion.trim();
 
@@ -259,8 +302,8 @@ function App() {
   }
 
   async function handleCopy() {
-    if (!result && !translationResult) return;
-    const didCopy = await copyText(formatAnalysisAsText(result, translationResult));
+    if (!hasExportableResult) return;
+    const didCopy = await copyText(formatAnalysisAsText(result, translationResult, comparisonResult));
     if (didCopy) {
       setCopied(true);
       showActionMessage(copy.actions.copied);
@@ -272,8 +315,8 @@ function App() {
   }
 
   function handleDownload() {
-    if (!result && !translationResult) return;
-    downloadTextFile("careclarity-summary.txt", formatAnalysisAsText(result, translationResult));
+    if (!hasExportableResult) return;
+    downloadTextFile("careclarity-summary.txt", formatAnalysisAsText(result, translationResult, comparisonResult));
     showActionMessage(copy.actions.downloadStarted);
   }
 
@@ -287,6 +330,7 @@ function App() {
     setSentenceError("");
     setTranslationError("");
     setChatError("");
+    setComparisonError("");
 
     if (isTranslationAppLanguage(nextLanguage)) {
       setTargetLanguage(nextLanguage);
@@ -405,6 +449,89 @@ function App() {
               </li>
             </ul>
           </section>
+
+          <details
+            className="compare-card"
+            open={Boolean(comparisonPreviousText || comparisonUpdatedText || comparisonResult || comparisonError)}
+          >
+            <summary>
+              <span className="sentence-icon compare-icon" aria-hidden="true">
+                <GitCompareArrows size={18} />
+              </span>
+              <span>
+                <strong>{copy.comparison.heading}</strong>
+                <small>{copy.comparison.intro}</small>
+              </span>
+            </summary>
+            <div className="compare-body">
+              <div className="compare-grid">
+                <div>
+                  <label className="field-label" htmlFor="comparison-previous-letter">
+                    {copy.comparison.previousLabel}
+                  </label>
+                  <textarea
+                    id="comparison-previous-letter"
+                    className="comparison-input"
+                    placeholder={copy.comparison.previousPlaceholder}
+                    value={comparisonPreviousText}
+                    onChange={(event) => {
+                      setComparisonPreviousText(event.target.value);
+                      setComparisonError("");
+                    }}
+                  />
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="comparison-updated-letter">
+                    {copy.comparison.updatedLabel}
+                  </label>
+                  <textarea
+                    id="comparison-updated-letter"
+                    className="comparison-input"
+                    placeholder={copy.comparison.updatedPlaceholder}
+                    value={comparisonUpdatedText}
+                    onChange={(event) => {
+                      setComparisonUpdatedText(event.target.value);
+                      setComparisonError("");
+                    }}
+                  />
+                </div>
+              </div>
+              <div className="compare-actions">
+                <button
+                  className="secondary-button compare-button"
+                  type="button"
+                  onClick={handleCompareLetters}
+                  disabled={
+                    isComparingLetters ||
+                    comparisonPreviousText.trim().length < 30 ||
+                    comparisonUpdatedText.trim().length < 30
+                  }
+                >
+                  {isComparingLetters ? <Loader2 className="spin" size={18} /> : <GitCompareArrows size={18} />}
+                  <span>{isComparingLetters ? copy.comparison.comparing : copy.comparison.compareButton}</span>
+                </button>
+                <button
+                  className="secondary-button subtle-button"
+                  type="button"
+                  onClick={() => {
+                    setComparisonPreviousText("");
+                    setComparisonUpdatedText("");
+                    setComparisonResult(null);
+                    setComparisonError("");
+                    showActionMessage(copy.comparison.clearButton);
+                  }}
+                  disabled={isComparingLetters || (!comparisonPreviousText && !comparisonUpdatedText && !comparisonResult)}
+                >
+                  <span>{copy.comparison.clearButton}</span>
+                </button>
+              </div>
+              {comparisonError ? (
+                <p className="sentence-error" role="alert">
+                  {comparisonError}
+                </p>
+              ) : null}
+            </div>
+          </details>
 
           <section className="sentence-card" aria-labelledby="sentence-heading">
             <div className="sentence-heading">
@@ -632,6 +759,10 @@ function App() {
                 setSentenceError("");
                 setTranslationResult(null);
                 setTranslationError("");
+                setComparisonPreviousText("");
+                setComparisonUpdatedText("");
+                setComparisonResult(null);
+                setComparisonError("");
                 setChatQuestion("");
                 setChatHistory([]);
                 setChatError("");
@@ -652,13 +783,15 @@ function App() {
         <section
           className="results-panel dashboard-shell"
           aria-labelledby="results-heading"
-          aria-busy={isAnalyzing}
+          aria-busy={isAnalyzing || isComparingLetters}
         >
           <div className="results-topbar">
             <div>
-              <h2 id="results-heading">{copy.results.heading}</h2>
+              <h2 id="results-heading">{comparisonResult ? copy.comparison.resultHeading : copy.results.heading}</h2>
               <p>
-                {result
+                {comparisonResult
+                  ? copy.comparison.resultReady
+                  : result
                   ? resultModeLabel(result, copy.results)
                   : translationResult
                     ? copy.results.translationReady(getAppLanguageLabel(translationResult.targetLanguage))
@@ -667,22 +800,28 @@ function App() {
             </div>
             <ExportButtons
               copied={copied}
-              disabled={!result && !translationResult}
+              disabled={!hasExportableResult}
               copy={copy.export}
               onCopy={handleCopy}
               onDownload={handleDownload}
             />
           </div>
 
-          {result ? (
+          {comparisonResult ? (
+            <LetterComparisonDashboard
+              comparison={comparisonResult}
+              copy={copy.comparison}
+              dashboardCopy={copy.dashboard}
+            />
+          ) : result ? (
             <>
               <ResultNotice result={result} copy={copy.results} />
               <PatientDashboard result={result} copy={copy.dashboard} />
             </>
-          ) : isAnalyzing ? (
+          ) : isAnalyzing || isComparingLetters ? (
             <div className="empty-state loading" aria-live="polite">
               <Loader2 className="spin" size={42} />
-              <span>{copy.results.analyzingSafely}</span>
+              <span>{isComparingLetters ? copy.comparison.comparing : copy.results.analyzingSafely}</span>
             </div>
           ) : (
             <div className="empty-state" aria-live="polite">

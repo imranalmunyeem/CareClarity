@@ -8,6 +8,61 @@ export type AppLanguage = (typeof APP_LANGUAGES)[number];
 
 type LanguageDirection = "ltr" | "rtl";
 
+type ComparisonCopy = {
+  heading: string;
+  intro: string;
+  previousLabel: string;
+  updatedLabel: string;
+  previousPlaceholder: string;
+  updatedPlaceholder: string;
+  compareButton: string;
+  comparing: string;
+  clearButton: string;
+  resultHeading: string;
+  resultReady: string;
+  changedFields: string;
+  oldLetter: string;
+  newLetter: string;
+  noFieldChanges: string;
+  addedActions: string;
+  removedActions: string;
+  noActionChanges: string;
+  detailsToCheck: string;
+  comparisonSafety: string;
+  needBothLetters: string;
+  started: string;
+  ready: string;
+  unavailable: string;
+};
+
+const DEFAULT_COMPARISON_COPY: ComparisonCopy = {
+  heading: "Compare Letters",
+  intro: "Paste an older letter and a newer letter to see what admin details changed.",
+  previousLabel: "Older letter",
+  updatedLabel: "Newer letter",
+  previousPlaceholder: "Paste the earlier version of the letter.",
+  updatedPlaceholder: "Paste the newer or replacement letter.",
+  compareButton: "Compare letters",
+  comparing: "Comparing",
+  clearButton: "Clear comparison",
+  resultHeading: "What Changed?",
+  resultReady: "Letter comparison ready",
+  changedFields: "Changed admin details",
+  oldLetter: "Older letter",
+  newLetter: "Newer letter",
+  noFieldChanges: "No clear changes were found in the main admin details.",
+  addedActions: "New actions in newer letter",
+  removedActions: "Actions no longer found",
+  noActionChanges: "No clear checklist changes were found.",
+  detailsToCheck: "Details to check before acting",
+  comparisonSafety:
+    "CareClarity compares administrative details only. It does not decide which letter is clinically correct and does not provide medical advice.",
+  needBothLetters: "Paste both the older and newer letter before comparing.",
+  started: "Comparing both letters for admin changes.",
+  ready: "Letter comparison is ready.",
+  unavailable: "Letter comparison is unavailable right now.",
+};
+
 type CopySource = {
   subtitle: string;
   languageLabel: string;
@@ -136,6 +191,7 @@ type CopySource = {
   cleared: string;
   languageChanged: string;
   removeFilePrefix: string;
+  comparison?: Partial<ComparisonCopy>;
 };
 
 const APP_LANGUAGE_META: Record<AppLanguage, { label: string; code: string; direction: LanguageDirection }> = {
@@ -241,6 +297,10 @@ function createCopy(source: CopySource) {
       label: source.patientDashboard,
       copyDashboard: source.copyDashboard,
       downloadDashboard: source.downloadDashboard,
+    },
+    comparison: {
+      ...DEFAULT_COMPARISON_COPY,
+      ...source.comparison,
     },
     dashboard: {
       appointmentReadinessPack:

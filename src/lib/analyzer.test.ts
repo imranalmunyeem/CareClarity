@@ -3,6 +3,7 @@ import { sampleLetters } from "../data/samples";
 import { analyzeLetterLocally } from "./analyzer";
 import { analysisRequestSchema, analysisResponseSchema } from "./analysisSchema";
 import { buildAppointmentReadinessPack } from "./appointmentReadiness";
+import { buildLetterComparison } from "./letterComparison";
 import { buildMockSentenceExplanation } from "../server/explainSentenceCore";
 import { getUnsafeProductChatReason, productChatPayload } from "../server/productChatCore";
 import { translateLetterPayload } from "../server/translateLetterCore";
@@ -64,6 +65,26 @@ describe("CareClarity safety flow", () => {
     expect(pack.bringOrPrepare.join(" ")).toContain("letter");
     expect(exported).toContain("Appointment readiness pack");
     expect(exported).toContain("Before you go");
+  });
+
+  it("compares two letters and highlights changed appointment admin details", () => {
+    const original = analyzeLetterLocally(sampleLetters[0].text);
+    const updatedText = sampleLetters[0].text
+      .replace("Tuesday 18 June 2026", "Thursday 25 June 2026")
+      .replace("10:40am", "2:15pm")
+      .replace("Level 2, Green Wing, Northbridge Hospital, Mill Road, NB1 4AA", "Level 4, Blue Wing, Northbridge Hospital, Mill Road, NB1 4AA");
+    const updated = analyzeLetterLocally(updatedText);
+    const comparison = buildLetterComparison(original, updated);
+    const exported = formatAnalysisAsText(null, null, comparison);
+
+    expect(comparison.changedCount).toBeGreaterThanOrEqual(3);
+    expect(comparison.fields.find((field) => field.key === "appointmentDate")?.changed).toBe(true);
+    expect(comparison.fields.find((field) => field.key === "appointmentTime")?.changed).toBe(true);
+    expect(comparison.fields.find((field) => field.key === "location")?.changed).toBe(true);
+    expect(comparison.detailsToCheck.join(" ")).toContain("latest appointment date and time");
+    expect(comparison.safetyNotice).toContain("does not provide medical advice");
+    expect(exported).toContain("What changed letter comparison");
+    expect(exported).toContain("appointmentDate");
   });
 
   it("validates request input before endpoint analysis", () => {
