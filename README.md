@@ -319,6 +319,36 @@ npm run test
 npm run build
 ```
 
+## Host On GitHub Pages
+
+This repo is configured for GitHub Pages deployment with GitHub Actions.
+
+Expected public URL after deployment:
+
+[https://imranalmunyeem.github.io/CareClarity/](https://imranalmunyeem.github.io/CareClarity/)
+
+### Setup Steps
+
+1. Push the project to `main` on GitHub.
+2. Open the repository on GitHub.
+3. Go to **Settings** -> **Pages**.
+4. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+5. Push a commit or run the **Deploy GitHub Pages** workflow manually from the **Actions** tab.
+
+The workflow in `.github/workflows/deploy-pages.yml` installs dependencies, runs tests, builds the Vite static site with the `/CareClarity/` base path and deploys the `dist` folder to GitHub Pages.
+
+### Important Pages Limitation
+
+GitHub Pages is static hosting. It cannot run server-side API routes or hold private secrets such as `ZAI_API_KEY`.
+
+On GitHub Pages:
+
+- the main letter dashboard can still show the safe local fallback analysis
+- translation, sentence explanation and product chat use safe fallback behavior if the backend API is unavailable
+- live Z.AI-powered API calls require a serverless/backend host such as Vercel, Netlify, Render or a separate API service
+
+Use GitHub Pages for a public frontend demo. Use a serverless host for the full Z.AI-powered product.
+
 ## Demo Guidance
 
 Use synthetic healthcare admin letters only. Do not paste or upload real patient data into demos, public deployments or hackathon judging environments unless the project has the right governance, consent and hosting controls in place.
