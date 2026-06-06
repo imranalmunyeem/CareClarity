@@ -5,6 +5,13 @@ import { analysisRequestSchema, analysisResponseSchema } from "./analysisSchema"
 import { buildMockSentenceExplanation } from "../server/explainSentenceCore";
 import { getUnsafeProductChatReason, productChatPayload } from "../server/productChatCore";
 import { translateLetterPayload } from "../server/translateLetterCore";
+import {
+  APP_LANGUAGES,
+  DEFAULT_APP_LANGUAGE,
+  getAppCopy,
+  getAppLanguageDirection,
+  getAppLanguageLabel,
+} from "./i18n";
 import { buildMockTranslationResponse } from "./mockTranslationResponse";
 import { buildMockProductChatResponse } from "./mockProductChatResponse";
 import { productChatRequestSchema, productChatResponseSchema } from "./productChatSchema";
@@ -178,6 +185,26 @@ describe("CareClarity safety flow", () => {
       if (previousKey) {
         process.env.ZAI_API_KEY = previousKey;
       }
+    }
+  });
+
+  it("provides a complete app language pack with English as default", () => {
+    expect(DEFAULT_APP_LANGUAGE).toBe("English");
+    expect(APP_LANGUAGES).toContain("English");
+    expect(APP_LANGUAGES).toContain("Spanish");
+    expect(APP_LANGUAGES).toContain("Urdu");
+    expect(getAppLanguageDirection("Arabic")).toBe("rtl");
+    expect(getAppLanguageDirection("Urdu")).toBe("rtl");
+
+    for (const language of APP_LANGUAGES) {
+      const copy = getAppCopy(language);
+
+      expect(getAppLanguageLabel(language).length).toBeGreaterThan(0);
+      expect(copy.header.languageLabel.length).toBeGreaterThan(0);
+      expect(copy.uploadPanel.heading.length).toBeGreaterThan(0);
+      expect(copy.dashboard.extractionRows).toHaveLength(8);
+      expect(copy.chat.askCareClarity.length).toBeGreaterThan(0);
+      expect(copy.actions.languageChanged(getAppLanguageLabel(language))).not.toContain("{language}");
     }
   });
 });

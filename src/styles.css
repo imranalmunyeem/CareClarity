@@ -34,6 +34,10 @@ body {
   color: var(--ink);
 }
 
+.app-root {
+  min-height: 100vh;
+}
+
 html,
 body {
   overflow-x: hidden;
@@ -130,6 +134,50 @@ h1 {
   color: var(--teal-dark);
   font-weight: 700;
   white-space: nowrap;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.language-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.language-control label {
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 0 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.language-control label svg {
+  color: var(--teal);
+}
+
+.language-control select {
+  width: auto;
+  min-width: 138px;
+  min-height: 34px;
+  border-color: transparent;
+  background: var(--surface-soft);
+  font-size: 0.88rem;
+  font-weight: 800;
 }
 
 .status-group {
@@ -286,8 +334,7 @@ button:focus-visible {
 .trust-block,
 .upload-block,
 .sentence-card,
-.translation-card,
-.product-chat-card {
+.translation-card {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid var(--line);
@@ -344,8 +391,7 @@ button:focus-visible {
 }
 
 .sentence-card,
-.translation-card,
-.product-chat-card {
+.translation-card {
   display: grid;
   gap: 10px;
 }
@@ -546,6 +592,107 @@ button:focus-visible {
 .translation-safety svg {
   margin-top: 1px;
   color: var(--teal);
+}
+
+.floating-chat {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 40;
+  width: min(420px, calc(100vw - 32px));
+  display: grid;
+  justify-items: end;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.floating-chat-panel,
+.chat-launcher {
+  pointer-events: auto;
+}
+
+.floating-chat-panel {
+  width: 100%;
+  max-height: min(76vh, 680px);
+  display: grid;
+  gap: 10px;
+  overflow: hidden;
+  padding: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 20px 58px rgba(24, 32, 42, 0.18);
+}
+
+.floating-chat-header {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 38px;
+  gap: 10px;
+  align-items: start;
+}
+
+.floating-chat-header p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.floating-chat-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  margin-top: 2px;
+}
+
+.chat-close {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+
+.chat-close:hover {
+  border-color: var(--line-strong);
+  background: #eef3f6;
+  color: var(--ink);
+}
+
+.chat-launcher {
+  max-width: 100%;
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 18px;
+  border: 1px solid var(--teal-dark);
+  border-radius: 999px;
+  background: var(--teal);
+  color: #ffffff;
+  font-weight: 800;
+  box-shadow: 0 14px 34px rgba(4, 124, 122, 0.28);
+}
+
+.chat-launcher:hover {
+  background: var(--teal-dark);
+}
+
+.floating-chat-panel .chat-log {
+  max-height: min(280px, 34vh);
+}
+
+.floating-chat-panel .chat-button {
+  width: 100%;
+  justify-self: stretch;
 }
 
 .chat-log {
@@ -1348,6 +1495,7 @@ button:focus-visible {
 
   .app-header {
     min-height: 66px;
+    gap: 10px;
   }
 
   .brand-mark {
@@ -1372,6 +1520,28 @@ button:focus-visible {
 
   .status-group {
     display: none;
+  }
+
+  .header-actions {
+    flex: 0 0 auto;
+  }
+
+  .language-control {
+    gap: 4px;
+  }
+
+  .language-control label span {
+    width: 1px;
+    height: 1px;
+    position: absolute;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .language-control select {
+    min-width: 112px;
   }
 
   .workspace-shell {
@@ -1422,6 +1592,21 @@ button:focus-visible {
   .translate-button {
     width: 100%;
     min-width: 0;
+  }
+
+  .floating-chat {
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    width: auto;
+  }
+
+  .floating-chat-panel {
+    max-height: 78vh;
+  }
+
+  .chat-launcher {
+    width: 100%;
   }
 
   .chat-button,
@@ -1475,6 +1660,20 @@ button:focus-visible {
   .brand-mark {
     width: 34px;
     height: 34px;
+  }
+
+  .language-control {
+    padding: 3px;
+  }
+
+  .language-control label {
+    padding: 0 2px 0 5px;
+  }
+
+  .language-control select {
+    min-width: 96px;
+    max-width: 112px;
+    padding: 0 8px;
   }
 
   .letter-preview {

@@ -8,8 +8,6 @@ import {
   Languages,
   LockKeyhole,
   Loader2,
-  MessageCircle,
-  Send,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -17,11 +15,25 @@ import {
   UserRoundCheck,
   X,
 } from "lucide-react";
-import { useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent } from "react";
 import { ExportButtons, PatientDashboard } from "./components/PatientDashboard";
+import { ProductChatWidget } from "./components/ProductChatWidget";
 import { requestAnalysis, type AnalysisResult } from "./lib/analyzer";
 import type { AIAnalysisAttachment } from "./lib/analysisSchema";
 import { downloadTextFile, formatAnalysisAsText } from "./lib/format";
+import {
+  APP_LANGUAGE_STORAGE_KEY,
+  APP_LANGUAGES,
+  DEFAULT_APP_LANGUAGE,
+  getAppCopy,
+  getAppLanguageCode,
+  getAppLanguageDirection,
+  getAppLanguageLabel,
+  isAppLanguage,
+  isTranslationAppLanguage,
+  type AppCopy,
+  type AppLanguage,
+} from "./lib/i18n";
 import { requestProductChatAnswer } from "./lib/productChat";
 import type { ProductChatMessage } from "./lib/productChatSchema";
 import { requestSentenceExplanation } from "./lib/sentenceExplainer";
@@ -47,6 +59,7 @@ const MAX_ATTACHMENTS = 4;
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 
 function App() {
+  const [appLanguage, setAppLanguage] = useState<AppLanguage>(() => readStoredAppLanguage());
   const [letterText, setLetterText] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [result, setResult] = useState<AnalysisResult | null>(null);
@@ -63,33 +76,39 @@ function App() {
   const [chatHistory, setChatHistory] = useState<ProductChatMessage[]>([]);
   const [chatError, setChatError] = useState("");
   const [isChatting, setIsChatting] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const actionMessageTimerRef = useRef<number | null>(null);
+  const copy = getAppCopy(appLanguage);
+  const appDirection = getAppLanguageDirection(appLanguage);
 
   const textStats = useMemo(() => {
     const words = letterText.trim() ? letterText.trim().split(/\s+/).length : 0;
-    return `${letterText.length.toLocaleString()} characters / ${words.toLocaleString()} words`;
-  }, [letterText]);
+    return copy.uploadPanel.textStats(letterText.length, words);
+  }, [copy, letterText]);
   const hasAnalysisInput = Boolean(letterText.trim() || attachedFiles.length);
+
+  useEffect(() => {
+    document.documentElement.lang = getAppLanguageCode(appLanguage);
+    window.localStorage.setItem(APP_LANGUAGE_STORAGE_KEY, appLanguage);
+  }, [appLanguage]);
 
   async function handleAnalyze() {
     if (!hasAnalysisInput) {
-      showActionMessage("Paste text or upload a PDF/image before analysis.");
+      showActionMessage(copy.actions.pasteOrUploadBeforeAnalysis);
       return;
     }
 
     setIsAnalyzing(true);
     setCopied(false);
-    showActionMessage("Analyzing with admin-only safety checks.");
+    showActionMessage(copy.actions.analyzingNotice);
 
     try {
       const analysis = await requestAnalysis(letterText, toAnalysisAttachments(attachedFiles));
       setResult(analysis);
-      showActionMessage(
-        analysis.mode === "ai" ? "Z.AI analysis completed server-side." : "Safe fallback result is ready.",
-      );
+      showActionMessage(analysis.mode === "ai" ? copy.actions.aiCompleted : copy.actions.fallbackReady);
     } finally {
       setIsAnalyzing(false);
     }
@@ -98,7 +117,6 @@ function App() {
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
     if (!files.length) return;
-    const unsupportedCount = files.filter((file) => !isSupportedAttachment(file)).length;
     const oversizedCount = files.filter(
       (file) => isSupportedAttachment(file) && file.size > MAX_ATTACHMENT_BYTES,
     ).length;
@@ -125,8 +143,8 @@ function App() {
     if (!acceptedFiles.length) {
       showActionMessage(
         oversizedCount
-          ? "Choose a PDF or image under 5 MB."
-          : "Choose a PDF or image file. Other file types are ignored.",
+          ? copy.actions.chooseSmallFile
+          : copy.actions.choosePdfOrImage,
       );
       event.target.value = "";
       return;
@@ -144,13 +162,7 @@ function App() {
         addedCount += 1;
       }
 
-      const skippedCount = acceptedFiles.length - addedCount;
-      const parts: string[] = [];
-      if (addedCount) parts.push(`${addedCount} file${addedCount === 1 ? "" : "s"} ready for analysis`);
-      if (unsupportedCount) parts.push(`${unsupportedCount} unsupported file${unsupportedCount === 1 ? "" : "s"} ignored`);
-      if (oversizedCount) parts.push(`${oversizedCount} oversized file${oversizedCount === 1 ? "" : "s"} ignored`);
-      if (skippedCount) parts.push(`${skippedCount} duplicate or extra file${skippedCount === 1 ? "" : "s"} skipped`);
-      showActionMessage(parts.length ? `${parts.join("; ")}.` : "No new files were attached.");
+      showActionMessage(addedCount ? copy.actions.filesReady : copy.actions.noNewFiles);
 
       return next;
     });
@@ -160,14 +172,14 @@ function App() {
 
   function removeAttachment(fileId: string) {
     setAttachedFiles((current) => current.filter((file) => file.id !== fileId));
-    showActionMessage("Attachment removed.");
+    showActionMessage(copy.actions.attachmentRemoved);
   }
 
   async function handleExplainSentence() {
     const sentence = sentenceText.trim();
 
     if (sentence.length < 8) {
-      setSentenceError("Paste one full sentence from the letter.");
+      setSentenceError(copy.actions.sentenceNeedFull);
       setSentenceResult(null);
       return;
     }
@@ -175,14 +187,14 @@ function App() {
     setIsExplainingSentence(true);
     setSentenceError("");
     setSentenceResult(null);
-    showActionMessage("Explaining the sentence with admin-only safety rules.");
+    showActionMessage(copy.actions.sentenceExplaining);
 
     try {
       const explanation = await requestSentenceExplanation(sentence);
       setSentenceResult(explanation);
-      showActionMessage("Sentence explanation is ready.");
-    } catch (error) {
-      setSentenceError(error instanceof Error ? error.message : "Sentence explanation is unavailable right now.");
+      showActionMessage(copy.actions.sentenceReady);
+    } catch {
+      setSentenceError(copy.actions.sentenceUnavailable);
     } finally {
       setIsExplainingSentence(false);
     }
@@ -192,7 +204,7 @@ function App() {
     const text = letterText.trim();
 
     if (text.length < 30) {
-      setTranslationError("Paste at least a few lines of letter text before translation.");
+      setTranslationError(copy.actions.translationNeedText);
       setTranslationResult(null);
       return;
     }
@@ -200,14 +212,14 @@ function App() {
     setIsTranslating(true);
     setTranslationError("");
     setTranslationResult(null);
-    showActionMessage(`Translating letter into ${targetLanguage}.`);
+    showActionMessage(copy.actions.translationStarted(getAppLanguageLabel(targetLanguage)));
 
     try {
       const translation = await requestLetterTranslation(text, targetLanguage);
       setTranslationResult(translation);
-      showActionMessage(`${translation.targetLanguage} translation is ready.`);
-    } catch (error) {
-      setTranslationError(error instanceof Error ? error.message : "Translation is unavailable right now.");
+      showActionMessage(copy.actions.translationReady(getAppLanguageLabel(translation.targetLanguage)));
+    } catch {
+      setTranslationError(copy.actions.translationUnavailable);
     } finally {
       setIsTranslating(false);
     }
@@ -217,11 +229,12 @@ function App() {
     const question = chatQuestion.trim();
 
     if (question.length < 3) {
-      setChatError("Ask a CareClarity product question.");
+      setChatError(copy.actions.chatNeedQuestion);
       return;
     }
 
     const recentHistory = chatHistory.slice(-8);
+    setIsChatOpen(true);
     setIsChatting(true);
     setChatError("");
     setChatQuestion("");
@@ -231,15 +244,15 @@ function App() {
       const response = await requestProductChatAnswer(question, recentHistory);
       const assistantContent = [
         response.answer,
-        response.suggestedNextStep ? `Next step: ${response.suggestedNextStep}` : "",
+        response.suggestedNextStep,
         response.safetyNotice,
       ]
         .filter(Boolean)
         .join("\n\n");
 
       setChatHistory((current) => [...current, { role: "assistant", content: assistantContent }]);
-    } catch (error) {
-      setChatError(error instanceof Error ? error.message : "CareClarity support chat is unavailable right now.");
+    } catch {
+      setChatError(copy.actions.chatUnavailable);
     } finally {
       setIsChatting(false);
     }
@@ -250,18 +263,36 @@ function App() {
     const didCopy = await copyText(formatAnalysisAsText(result, translationResult));
     if (didCopy) {
       setCopied(true);
-      showActionMessage("Result copied to clipboard.");
+      showActionMessage(copy.actions.copied);
       window.setTimeout(() => setCopied(false), 1800);
     } else {
       setCopied(false);
-      showActionMessage("Copy was blocked by the browser. Download is still available.");
+      showActionMessage(copy.actions.copyBlocked);
     }
   }
 
   function handleDownload() {
     if (!result && !translationResult) return;
     downloadTextFile("careclarity-summary.txt", formatAnalysisAsText(result, translationResult));
-    showActionMessage("Text download started.");
+    showActionMessage(copy.actions.downloadStarted);
+  }
+
+  function handleAppLanguageChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextLanguage = event.target.value;
+
+    if (!isAppLanguage(nextLanguage)) return;
+
+    const nextCopy = getAppCopy(nextLanguage);
+    setAppLanguage(nextLanguage);
+    setSentenceError("");
+    setTranslationError("");
+    setChatError("");
+
+    if (isTranslationAppLanguage(nextLanguage)) {
+      setTargetLanguage(nextLanguage);
+    }
+
+    showActionMessage(nextCopy.actions.languageChanged(getAppLanguageLabel(nextLanguage)));
   }
 
   function handleUploadKeyDown(event: KeyboardEvent<HTMLLabelElement>) {
@@ -284,7 +315,7 @@ function App() {
   }
 
   return (
-    <>
+    <div className="app-root" lang={getAppLanguageCode(appLanguage)} dir={appDirection}>
       <div className="sticky-frame">
         <header className="app-header">
           <div className="brand-lockup">
@@ -293,21 +324,34 @@ function App() {
             </span>
             <div>
               <h1>CareClarity</h1>
-              <p>NHS-style admin companion</p>
+              <p>{copy.header.subtitle}</p>
             </div>
           </div>
-          <div className="status-group" aria-label="CareClarity safeguards">
-            <span className="status-pill">Admin support only</span>
-            <span className="status-pill privacy">No login required</span>
+          <div className="header-actions">
+            <div className="language-control">
+              <label htmlFor="app-language">
+                <Languages size={15} aria-hidden="true" />
+                <span>{copy.header.languageLabel}</span>
+              </label>
+              <select id="app-language" value={appLanguage} onChange={handleAppLanguageChange}>
+                {APP_LANGUAGES.map((language) => (
+                  <option key={language} value={language}>
+                    {getAppLanguageLabel(language)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="status-group" aria-label={copy.header.safeguardsLabel}>
+              <span className="status-pill">{copy.header.adminSupportOnly}</span>
+              <span className="status-pill privacy">{copy.header.noLoginRequired}</span>
+            </div>
           </div>
         </header>
 
         <div className="safety-banner" role="note">
           <AlertTriangle size={18} aria-hidden="true" />
           <p>
-            <strong>Safety notice:</strong> CareClarity explains healthcare admin, appointment details and
-            prescription paperwork only. It does not diagnose, recommend medicines or replace your NHS team.
-            For urgent medical help in the UK, use NHS 111. For life-threatening emergencies, call 999.
+            <strong>{copy.safetyBanner.label}</strong> {copy.safetyBanner.text}
           </p>
         </div>
       </div>
@@ -316,25 +360,23 @@ function App() {
         <section className="tool-panel input-panel" aria-labelledby="letter-heading">
           <div className="panel-heading">
             <div>
-              <h2 id="letter-heading">Upload Paperwork</h2>
-              <p>Use a PDF, image or pasted text. No account is needed.</p>
+              <h2 id="letter-heading">{copy.uploadPanel.heading}</h2>
+              <p>{copy.uploadPanel.intro}</p>
             </div>
           </div>
 
           <label className="field-label" htmlFor="letter-text">
-            Optional letter or prescription text
+            {copy.uploadPanel.optionalLetterLabel}
           </label>
           <textarea
             id="letter-text"
-            placeholder="Paste text here if you have it. You can also upload a PDF or image below."
+            placeholder={copy.uploadPanel.letterPlaceholder}
             value={letterText}
             onChange={(event) => setLetterText(event.target.value)}
             aria-describedby="letter-helper"
             spellCheck="true"
           />
-          <p id="letter-helper" className="input-helper">
-            Paste text when available, or upload a PDF/image and let CareClarity read the paperwork for admin details.
-          </p>
+          <p id="letter-helper" className="input-helper">{copy.uploadPanel.letterHelper}</p>
 
           <div className="input-footer">
             <span className="text-stat">{textStats}</span>
@@ -344,82 +386,24 @@ function App() {
             <div className="trust-heading">
               <LockKeyhole size={18} aria-hidden="true" />
               <div>
-                <h3 id="trust-heading">Private by design</h3>
-                <p>No registration, no patient account and no database storage in this prototype.</p>
+                <h3 id="trust-heading">{copy.trust.heading}</h3>
+                <p>{copy.trust.text}</p>
               </div>
             </div>
             <ul className="trust-list">
               <li>
                 <UserRoundCheck size={17} aria-hidden="true" />
-                <span>Patients can use CareClarity without creating an account.</span>
+                <span>{copy.trust.noAccount}</span>
               </li>
               <li>
                 <Database size={17} aria-hidden="true" />
-                <span>We do not save letters, prescriptions or uploaded files to a backend database.</span>
+                <span>{copy.trust.noStorage}</span>
               </li>
               <li>
                 <ShieldCheck size={17} aria-hidden="true" />
-                <span>Files are used for the analysis request only; CareClarity does not keep a database copy.</span>
+                <span>{copy.trust.filesRequestOnly}</span>
               </li>
             </ul>
-          </section>
-
-          <section className="product-chat-card" aria-labelledby="product-chat-heading">
-            <div className="sentence-heading">
-              <span className="sentence-icon chat-icon" aria-hidden="true">
-                <MessageCircle size={18} />
-              </span>
-              <div>
-                <h3 id="product-chat-heading">CareClarity Help Chat</h3>
-                <p>Ask how to use CareClarity in your own language. The chat stays product-support only.</p>
-              </div>
-            </div>
-            {chatHistory.length ? (
-              <div className="chat-log" aria-live="polite">
-                {chatHistory.map((message, index) => (
-                  <article
-                    key={`${message.role}-${index}-${message.content.slice(0, 16)}`}
-                    className={message.role === "user" ? "chat-bubble user" : "chat-bubble assistant"}
-                  >
-                    <span>{message.role === "user" ? "You" : "CareClarity"}</span>
-                    <p>{message.content}</p>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <p className="chat-empty">Try asking: How do I translate a letter? Can I use this without login?</p>
-            )}
-            <label className="field-label" htmlFor="product-chat-question">
-              Product question
-            </label>
-            <textarea
-              id="product-chat-question"
-              className="chat-input"
-              placeholder="Ask how to use CareClarity."
-              value={chatQuestion}
-              onChange={(event) => {
-                setChatQuestion(event.target.value);
-                setChatError("");
-              }}
-            />
-            <button
-              className="secondary-button chat-button"
-              type="button"
-              onClick={handleProductChat}
-              disabled={isChatting || chatQuestion.trim().length < 3}
-            >
-              {isChatting ? <Loader2 className="spin" size={18} /> : <Send size={18} />}
-              <span>{isChatting ? "Replying" : "Ask CareClarity"}</span>
-            </button>
-            {chatError ? (
-              <p className="sentence-error" role="alert">
-                {chatError}
-              </p>
-            ) : null}
-            <p className="chat-safety">
-              <ShieldCheck size={16} aria-hidden="true" />
-              <span>No medical advice, illegal requests, diagnosis, prescribing, or treatment guidance.</span>
-            </p>
           </section>
 
           <section className="sentence-card" aria-labelledby="sentence-heading">
@@ -428,17 +412,17 @@ function App() {
                 <FileText size={18} />
               </span>
               <div>
-                <h3 id="sentence-heading">Explain this sentence</h3>
-                <p>Z.AI explains one confusing sentence in plain English, with admin-only safety boundaries.</p>
+                <h3 id="sentence-heading">{copy.sentence.heading}</h3>
+                <p>{copy.sentence.intro}</p>
               </div>
             </div>
             <label className="field-label" htmlFor="sentence-text">
-              Confusing sentence
+              {copy.sentence.label}
             </label>
             <textarea
               id="sentence-text"
               className="sentence-input"
-              placeholder="Paste one sentence from the letter."
+              placeholder={copy.sentence.placeholder}
               value={sentenceText}
               onChange={(event) => {
                 setSentenceText(event.target.value);
@@ -446,9 +430,7 @@ function App() {
               }}
               aria-describedby="sentence-helper"
             />
-            <p id="sentence-helper" className="input-helper">
-              Use this for wording that is confusing, not for diagnosis, treatment or medication advice.
-            </p>
+            <p id="sentence-helper" className="input-helper">{copy.sentence.helper}</p>
             <button
               className="secondary-button sentence-button"
               type="button"
@@ -456,7 +438,7 @@ function App() {
               disabled={isExplainingSentence || sentenceText.trim().length < 8}
             >
               {isExplainingSentence ? <Loader2 className="spin" size={18} /> : <Sparkles size={18} />}
-              <span>{isExplainingSentence ? "Explaining" : "Explain sentence"}</span>
+              <span>{isExplainingSentence ? copy.sentence.explaining : copy.sentence.explain}</span>
             </button>
             {sentenceError ? (
               <p className="sentence-error" role="alert">
@@ -467,15 +449,15 @@ function App() {
               <div className="sentence-result" aria-live="polite">
                 <dl>
                   <div>
-                    <dt>Plain-English meaning</dt>
+                    <dt>{copy.sentence.plainMeaning}</dt>
                     <dd>{sentenceResult.plainEnglishMeaning}</dd>
                   </div>
                   <div>
-                    <dt>Why it matters</dt>
+                    <dt>{copy.sentence.whyItMatters}</dt>
                     <dd>{sentenceResult.whyItMatters}</dd>
                   </div>
                   <div>
-                    <dt>Action, if any</dt>
+                    <dt>{copy.sentence.actionIfAny}</dt>
                     <dd>{sentenceResult.actionIfAny}</dd>
                   </div>
                 </dl>
@@ -493,14 +475,14 @@ function App() {
                 <Languages size={18} />
               </span>
               <div>
-                <h3 id="translation-heading">Translate Letter</h3>
-                <p>Z.AI translates pasted healthcare admin text while preserving dates, places and instructions.</p>
+                <h3 id="translation-heading">{copy.translation.heading}</h3>
+                <p>{copy.translation.intro}</p>
               </div>
             </div>
             <div className="translation-controls">
               <div>
                 <label className="field-label" htmlFor="translation-language">
-                  Preferred language
+                  {copy.translation.preferredLanguage}
                 </label>
                 <select
                   id="translation-language"
@@ -512,7 +494,7 @@ function App() {
                 >
                   {SUPPORTED_TRANSLATION_LANGUAGES.map((language) => (
                     <option key={language} value={language}>
-                      {language}
+                      {getAppLanguageLabel(language)}
                     </option>
                   ))}
                 </select>
@@ -522,9 +504,9 @@ function App() {
                 type="button"
                 onClick={handleTranslateLetter}
                 disabled={isTranslating || letterText.trim().length < 30}
-              >
-                {isTranslating ? <Loader2 className="spin" size={18} /> : <Languages size={18} />}
-                <span>{isTranslating ? "Translating" : "Translate letter"}</span>
+            >
+              {isTranslating ? <Loader2 className="spin" size={18} /> : <Languages size={18} />}
+                <span>{isTranslating ? copy.translation.translating : copy.translation.translateLetter}</span>
               </button>
             </div>
             {translationError ? (
@@ -535,15 +517,15 @@ function App() {
             {translationResult ? (
               <div className="translation-result" aria-live="polite">
                 <header>
-                  <span>{translationResult.targetLanguage}</span>
-                  <strong>{translationResult.confidence} confidence</strong>
+                  <span>{getAppLanguageLabel(translationResult.targetLanguage)}</span>
+                  <strong>{copy.translation.confidenceLabel(translationResult.confidence)}</strong>
                 </header>
                 <section>
-                  <h4>Translated letter</h4>
+                  <h4>{copy.translation.translatedLetter}</h4>
                   <p>{translationResult.translatedLetter}</p>
                 </section>
                 <section>
-                  <h4>Important admin terms</h4>
+                  <h4>{copy.translation.importantTerms}</h4>
                   <ul>
                     {translationResult.importantTerms.map((term) => (
                       <li key={`${term.originalTerm}-${term.translatedOrExplainedMeaning}`}>
@@ -554,7 +536,7 @@ function App() {
                   </ul>
                 </section>
                 <section>
-                  <h4>Translation notes</h4>
+                  <h4>{copy.translation.translationNotes}</h4>
                   <ul>
                     {translationResult.translationNotes.map((note) => (
                       <li key={note}>{note}</li>
@@ -571,8 +553,8 @@ function App() {
 
           <section className="upload-block" aria-labelledby="upload-heading">
             <div className="upload-copy">
-              <h3 id="upload-heading">Upload a prescription or letter</h3>
-              <p>PDF and image files can be analyzed for admin details and removed at any time.</p>
+              <h3 id="upload-heading">{copy.upload.heading}</h3>
+              <p>{copy.upload.intro}</p>
             </div>
             <label
               className="upload-control"
@@ -584,8 +566,8 @@ function App() {
               onKeyDown={handleUploadKeyDown}
             >
               <UploadCloud size={22} aria-hidden="true" />
-              <span>Choose PDF or image</span>
-              <small>PDF, PNG, JPG, WebP or HEIC where supported</small>
+              <span>{copy.upload.choosePdfImage}</span>
+              <small>{copy.upload.fileTypes}</small>
             </label>
             <input
               ref={fileInputRef}
@@ -598,7 +580,7 @@ function App() {
               onChange={handleFileChange}
             />
             {attachedFiles.length ? (
-              <ul className="attachment-list" aria-label="Files ready for analysis">
+              <ul className="attachment-list" aria-label={copy.upload.filesReadyAria}>
                 {attachedFiles.map((file) => (
                   <li key={file.id}>
                     {file.kind === "pdf" ? (
@@ -609,15 +591,15 @@ function App() {
                     <div>
                       <strong>{file.name}</strong>
                       <span>
-                        {file.kind === "pdf" ? "PDF" : "Image"} - {formatBytes(file.size)}
+                        {file.kind === "pdf" ? copy.upload.pdf : copy.upload.image} - {formatBytes(file.size)}
                       </span>
                     </div>
                     <button
                       className="attachment-remove"
                       type="button"
                       onClick={() => removeAttachment(file.id)}
-                      title={`Remove ${file.name}`}
-                      aria-label={`Remove ${file.name}`}
+                      title={copy.upload.removeFile(file.name)}
+                      aria-label={copy.upload.removeFile(file.name)}
                     >
                       <X size={16} />
                     </button>
@@ -625,9 +607,7 @@ function App() {
                 ))}
               </ul>
             ) : null}
-            <p id="upload-note" className="upload-note">
-              Your upload is used for this analysis request only. It is not saved to a CareClarity database.
-            </p>
+            <p id="upload-note" className="upload-note">{copy.upload.note}</p>
           </section>
 
           <div className="button-row">
@@ -636,10 +616,10 @@ function App() {
               type="button"
               onClick={handleAnalyze}
               disabled={isAnalyzing || !hasAnalysisInput}
-              title="Analyze paperwork"
+              title={copy.buttons.analyzePaperwork}
             >
               {isAnalyzing ? <Loader2 className="spin" size={18} /> : <Sparkles size={18} />}
-              <span>{isAnalyzing ? "Analyzing" : "Analyze"}</span>
+              <span>{isAnalyzing ? copy.buttons.analyzing : copy.buttons.analyze}</span>
             </button>
             <button
               className="icon-button"
@@ -658,10 +638,10 @@ function App() {
                 if (fileInputRef.current) fileInputRef.current.value = "";
                 setResult(null);
                 setCopied(false);
-                showActionMessage("Paperwork, result and attachments cleared.");
+                showActionMessage(copy.actions.cleared);
               }}
-              title="Clear paperwork"
-              aria-label="Clear paperwork"
+              title={copy.buttons.clearPaperwork}
+              aria-label={copy.buttons.clearPaperwork}
             >
               <Trash2 size={18} />
             </button>
@@ -676,18 +656,19 @@ function App() {
         >
           <div className="results-topbar">
             <div>
-              <h2 id="results-heading">Patient Dashboard</h2>
+              <h2 id="results-heading">{copy.results.heading}</h2>
               <p>
                 {result
-                  ? resultModeLabel(result)
+                  ? resultModeLabel(result, copy.results)
                   : translationResult
-                    ? `${translationResult.targetLanguage} translation ready`
-                    : "No analysis yet"}
+                    ? copy.results.translationReady(getAppLanguageLabel(translationResult.targetLanguage))
+                    : copy.results.noAnalysisYet}
               </p>
             </div>
             <ExportButtons
               copied={copied}
               disabled={!result && !translationResult}
+              copy={copy.export}
               onCopy={handleCopy}
               onDownload={handleDownload}
             />
@@ -695,23 +676,38 @@ function App() {
 
           {result ? (
             <>
-              <ResultNotice result={result} />
-              <PatientDashboard result={result} />
+              <ResultNotice result={result} copy={copy.results} />
+              <PatientDashboard result={result} copy={copy.dashboard} />
             </>
           ) : isAnalyzing ? (
             <div className="empty-state loading" aria-live="polite">
               <Loader2 className="spin" size={42} />
-              <span>Analyzing safely</span>
+              <span>{copy.results.analyzingSafely}</span>
             </div>
           ) : (
             <div className="empty-state" aria-live="polite">
               <FileText size={42} />
-              <span>Ready for paperwork</span>
+              <span>{copy.results.readyForPaperwork}</span>
             </div>
           )}
         </section>
       </main>
-    </>
+      <ProductChatWidget
+        isOpen={isChatOpen}
+        question={chatQuestion}
+        history={chatHistory}
+        error={chatError}
+        isLoading={isChatting}
+        copy={copy.chat}
+        onClose={() => setIsChatOpen(false)}
+        onToggle={() => setIsChatOpen((open) => !open)}
+        onQuestionChange={(value) => {
+          setChatQuestion(value);
+          setChatError("");
+        }}
+        onSubmit={handleProductChat}
+      />
+    </div>
   );
 }
 
@@ -728,12 +724,12 @@ function ActionStatus({ message }: { message: string }) {
   );
 }
 
-function ResultNotice({ result }: { result: AnalysisResult }) {
+function ResultNotice({ result, copy }: { result: AnalysisResult; copy: AppCopy["results"] }) {
   if (result.mode === "ai") {
     return (
       <div className="result-notice success" role="status">
         <ShieldCheck size={17} aria-hidden="true" />
-        <span>Z.AI analysis completed server-side. Your text and uploaded files are not saved by CareClarity.</span>
+        <span>{copy.aiNotice}</span>
       </div>
     );
   }
@@ -742,18 +738,22 @@ function ResultNotice({ result }: { result: AnalysisResult }) {
     <div className="result-notice" role="status">
       <AlertTriangle size={17} aria-hidden="true" />
       <span>
-        {result.fallbackReason ?? "A safe fallback result is being used."} The app still applies the same admin-only safety
-        rules.
+        {copy.fallbackNotice} {copy.fallbackTail}
       </span>
     </div>
   );
 }
 
-function resultModeLabel(result: AnalysisResult): string {
-  return result.mode === "ai" ? "Z.AI endpoint result" : "Safe fallback result";
+function resultModeLabel(result: AnalysisResult, copy: AppCopy["results"]): string {
+  return result.mode === "ai" ? copy.aiEndpointResult : copy.fallbackResult;
 }
 
 export default App;
+
+function readStoredAppLanguage(): AppLanguage {
+  const storedLanguage = window.localStorage.getItem(APP_LANGUAGE_STORAGE_KEY);
+  return isAppLanguage(storedLanguage) ? storedLanguage : DEFAULT_APP_LANGUAGE;
+}
 
 function toAnalysisAttachments(files: AttachedFile[]): AIAnalysisAttachment[] {
   return files.map((file) => ({

@@ -13,12 +13,16 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import type { AnalysisResult } from "../lib/analyzer";
+import type { AppCopy } from "../lib/i18n";
 
 type IconType = typeof FileSearch;
+type DashboardCopy = AppCopy["dashboard"];
+type ExportCopy = AppCopy["export"];
 
 type ExportButtonsProps = {
   copied: boolean;
   disabled: boolean;
+  copy: ExportCopy;
   onCopy: () => void;
   onDownload: () => void;
 };
@@ -31,27 +35,16 @@ type DashboardCardProps = {
   className?: string;
 };
 
-const extractionRows = [
-  ["Letter type", "letterType"],
-  ["Department or clinic", "departmentOrClinic"],
-  ["Appointment date", "appointmentDate"],
-  ["Appointment time", "appointmentTime"],
-  ["Location", "location"],
-  ["Contact information", "contactInfo"],
-  ["Clinician or team", "namedClinicianOrTeam"],
-  ["Action required", "actionRequired"],
-] as const;
-
-export function ExportButtons({ copied, disabled, onCopy, onDownload }: ExportButtonsProps) {
+export function ExportButtons({ copied, disabled, copy, onCopy, onDownload }: ExportButtonsProps) {
   return (
-    <div className="export-buttons" aria-label="Export patient dashboard">
+    <div className="export-buttons" aria-label={copy.label}>
       <button
         className="icon-button"
         type="button"
         onClick={onCopy}
         disabled={disabled}
-        title="Copy dashboard"
-        aria-label="Copy dashboard"
+        title={copy.copyDashboard}
+        aria-label={copy.copyDashboard}
       >
         {copied ? <ClipboardCheck size={18} /> : <Clipboard size={18} />}
       </button>
@@ -60,8 +53,8 @@ export function ExportButtons({ copied, disabled, onCopy, onDownload }: ExportBu
         type="button"
         onClick={onDownload}
         disabled={disabled}
-        title="Download dashboard"
-        aria-label="Download dashboard"
+        title={copy.downloadDashboard}
+        aria-label={copy.downloadDashboard}
       >
         <Download size={18} />
       </button>
@@ -69,11 +62,11 @@ export function ExportButtons({ copied, disabled, onCopy, onDownload }: ExportBu
   );
 }
 
-export function SmartExtractionCard({ result }: { result: AnalysisResult }) {
+export function SmartExtractionCard({ result, copy }: { result: AnalysisResult; copy: DashboardCopy }) {
   return (
-    <DashboardCard title="Smart Extraction" poweredBy="Z.AI information extraction" icon={FileSearch}>
+    <DashboardCard title={copy.smartExtraction} poweredBy={copy.extractionPowered} icon={FileSearch}>
       <dl className="extraction-grid">
-        {extractionRows.map(([label, key]) => (
+        {copy.extractionRows.map(([label, key]) => (
           <div key={key} className="extraction-item">
             <dt>{label}</dt>
             <dd>{result.structuredInformationExtraction[key]}</dd>
@@ -84,21 +77,21 @@ export function SmartExtractionCard({ result }: { result: AnalysisResult }) {
   );
 }
 
-export function PlainEnglishCard({ result }: { result: AnalysisResult }) {
+export function PlainEnglishCard({ result, copy }: { result: AnalysisResult; copy: DashboardCopy }) {
   return (
-    <DashboardCard title="Plain-English Translation" poweredBy="Z.AI plain-English translation" icon={Languages}>
+    <DashboardCard title={copy.plainEnglishTranslation} poweredBy={copy.plainEnglishPowered} icon={Languages}>
       <div className="plain-card">
         <p className="dashboard-summary">{result.patientDashboardSummary}</p>
         <p>{result.plainEnglishTranslation}</p>
-        <span className="confidence-pill">{result.confidence} confidence</span>
+        <span className="confidence-pill">{copy.confidenceLabel(result.confidence)}</span>
       </div>
     </DashboardCard>
   );
 }
 
-export function ActionChecklist({ result }: { result: AnalysisResult }) {
+export function ActionChecklist({ result, copy }: { result: AnalysisResult; copy: DashboardCopy }) {
   return (
-    <DashboardCard title="Action Checklist" poweredBy="Z.AI action checklist" icon={CheckSquare}>
+    <DashboardCard title={copy.actionChecklist} poweredBy={copy.actionChecklistPowered} icon={CheckSquare}>
       <ul className="dashboard-action-list">
         {result.actionChecklist.map((item) => (
           <li key={`${item.timing}-${item.task}`}>
@@ -115,9 +108,9 @@ export function ActionChecklist({ result }: { result: AnalysisResult }) {
   );
 }
 
-export function AppointmentPrep({ result }: { result: AnalysisResult }) {
+export function AppointmentPrep({ result, copy }: { result: AnalysisResult; copy: DashboardCopy }) {
   return (
-    <DashboardCard title="Appointment Preparation" poweredBy="Z.AI appointment preparation" icon={CalendarDays}>
+    <DashboardCard title={copy.appointmentPreparation} poweredBy={copy.appointmentPreparationPowered} icon={CalendarDays}>
       <ul className="dashboard-list">
         {result.appointmentPreparationGuidance.map((item) => (
           <li key={item}>
@@ -130,9 +123,9 @@ export function AppointmentPrep({ result }: { result: AnalysisResult }) {
   );
 }
 
-export function ClinicianQuestions({ result }: { result: AnalysisResult }) {
+export function ClinicianQuestions({ result, copy }: { result: AnalysisResult; copy: DashboardCopy }) {
   return (
-    <DashboardCard title="Questions To Ask" poweredBy="Z.AI clinician questions" icon={HelpCircle}>
+    <DashboardCard title={copy.questionsToAsk} poweredBy={copy.clinicianQuestionsPowered} icon={HelpCircle}>
       <ol className="dashboard-list numbered">
         {result.clinicianQuestions.map((question) => (
           <li key={question}>
@@ -145,12 +138,12 @@ export function ClinicianQuestions({ result }: { result: AnalysisResult }) {
   );
 }
 
-export function ThingsToVerify({ result }: { result: AnalysisResult }) {
+export function ThingsToVerify({ result, copy }: { result: AnalysisResult; copy: DashboardCopy }) {
   return (
-    <DashboardCard title="Things To Verify" poweredBy="Z.AI missing-info review" icon={AlertTriangle}>
+    <DashboardCard title={copy.thingsToVerify} poweredBy={copy.missingInfoPowered} icon={AlertTriangle}>
       <div className="verify-stack">
         <section>
-          <h4>Missing or uncertain</h4>
+          <h4>{copy.missingOrUncertain}</h4>
           <ul className="dashboard-list warning">
             {result.missingOrUncertainInformation.map((item) => (
               <li key={item}>
@@ -161,7 +154,7 @@ export function ThingsToVerify({ result }: { result: AnalysisResult }) {
           </ul>
         </section>
         <section>
-          <h4>Waiting or referral guidance</h4>
+          <h4>{copy.waitingReferralGuidance}</h4>
           <ul className="dashboard-list">
             {result.waitingOrReferralGuidance.map((item) => (
               <li key={item}>
@@ -176,13 +169,13 @@ export function ThingsToVerify({ result }: { result: AnalysisResult }) {
   );
 }
 
-export function SafetyValidationCard({ result }: { result: AnalysisResult }) {
+export function SafetyValidationCard({ result, copy }: { result: AnalysisResult; copy: DashboardCopy }) {
   const isSafe = result.safetyValidation.status === "SAFE";
 
   return (
     <DashboardCard
-      title="Safety Validation"
-      poweredBy="Z.AI safety validation"
+      title={copy.safetyValidation}
+      poweredBy={copy.safetyPowered}
       icon={ShieldCheck}
       className={isSafe ? "safety-card safe" : "safety-card unsafe"}
     >
@@ -201,23 +194,23 @@ export function SafetyValidationCard({ result }: { result: AnalysisResult }) {
             ))}
           </ul>
         ) : (
-          <p className="muted-note">No unsafe diagnosis, prescribing, treatment or endorsement claim was detected.</p>
+          <p className="muted-note">{copy.noUnsafeDetected}</p>
         )}
       </div>
     </DashboardCard>
   );
 }
 
-export function PatientDashboard({ result }: { result: AnalysisResult }) {
+export function PatientDashboard({ result, copy }: { result: AnalysisResult; copy: DashboardCopy }) {
   return (
     <div className="patient-dashboard">
-      <PlainEnglishCard result={result} />
-      <SmartExtractionCard result={result} />
-      <ActionChecklist result={result} />
-      <AppointmentPrep result={result} />
-      <ClinicianQuestions result={result} />
-      <ThingsToVerify result={result} />
-      <SafetyValidationCard result={result} />
+      <PlainEnglishCard result={result} copy={copy} />
+      <SmartExtractionCard result={result} copy={copy} />
+      <ActionChecklist result={result} copy={copy} />
+      <AppointmentPrep result={result} copy={copy} />
+      <ClinicianQuestions result={result} copy={copy} />
+      <ThingsToVerify result={result} copy={copy} />
+      <SafetyValidationCard result={result} copy={copy} />
     </div>
   );
 }
