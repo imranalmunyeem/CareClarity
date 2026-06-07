@@ -16,6 +16,10 @@ Full Vercel deployment with frontend and backend API routes:
 
 [https://careclarity-eleven.vercel.app](https://careclarity-eleven.vercel.app)
 
+Product Demo Video:
+
+[youtube.com/watch?si=xCWiKVIUy3PgeOde&v=_efARak1bHM&feature=youtu.be](youtube.com/watch?si=xCWiKVIUy3PgeOde&v=_efARak1bHM&feature=youtu.be)
+
 Use the Vercel version for the full Z.AI-powered workflow, including letter analysis, translation, sentence explanation and product-support chat.
 
 ## Built At
