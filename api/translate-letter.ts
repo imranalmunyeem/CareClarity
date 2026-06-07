@@ -2,7 +2,7 @@ import {
   NO_STORE_HEADERS,
   parseRequestBody,
   translateLetterPayload,
-} from "../src/server/translateLetterCore";
+} from "../src/server/translateLetterCore.js";
 
 type VercelRequest = {
   method?: string;

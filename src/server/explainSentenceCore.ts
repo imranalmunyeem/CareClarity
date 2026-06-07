@@ -1,11 +1,11 @@
-import { getAIClient, getAIModel } from "../lib/aiClient";
-import { buildMockSentenceExplanation } from "../lib/mockSentenceExplanation";
+import { getAIClient, getAIModel } from "../lib/aiClient.js";
+import { buildMockSentenceExplanation } from "../lib/mockSentenceExplanation.js";
 import {
   explainSentenceRequestSchema,
   explainSentenceResponseSchema,
   type ExplainSentenceResponse,
-} from "../lib/sentenceExplainerSchema";
-import { NO_STORE_HEADERS, parseRequestBody } from "./analyzeCore";
+} from "../lib/sentenceExplainerSchema.js";
+import { NO_STORE_HEADERS, parseRequestBody } from "./analyzeCore.js";
 
 type ExplainSentencePayloadResult = {
   status: number;

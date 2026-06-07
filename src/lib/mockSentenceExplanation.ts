@@ -1,4 +1,4 @@
-import type { ExplainSentenceResponse } from "./sentenceExplainerSchema";
+import type { ExplainSentenceResponse } from "./sentenceExplainerSchema.js";
 
 export function buildMockSentenceExplanation(sentence: string): ExplainSentenceResponse {
   return {

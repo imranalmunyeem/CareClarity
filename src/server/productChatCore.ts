@@ -1,13 +1,13 @@
-import { getAIClient, getAIModel } from "../lib/aiClient";
-import { buildMockProductChatResponse, buildProductChatRefusal } from "../lib/mockProductChatResponse";
-import { buildProductChatPrompt, PRODUCT_CHAT_SYSTEM_PROMPT } from "../lib/productChatPrompt";
-import { getUnsafeProductChatReason } from "../lib/productChatSafety";
+import { getAIClient, getAIModel } from "../lib/aiClient.js";
+import { buildMockProductChatResponse, buildProductChatRefusal } from "../lib/mockProductChatResponse.js";
+import { buildProductChatPrompt, PRODUCT_CHAT_SYSTEM_PROMPT } from "../lib/productChatPrompt.js";
+import { getUnsafeProductChatReason } from "../lib/productChatSafety.js";
 import {
   productChatRequestSchema,
   productChatResponseSchema,
   type ProductChatResponse,
-} from "../lib/productChatSchema";
-import { NO_STORE_HEADERS, parseRequestBody } from "./analyzeCore";
+} from "../lib/productChatSchema.js";
+import { NO_STORE_HEADERS, parseRequestBody } from "./analyzeCore.js";
 
 type ProductChatPayloadResult = {
   status: number;

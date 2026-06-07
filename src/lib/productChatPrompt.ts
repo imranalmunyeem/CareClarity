@@ -1,4 +1,4 @@
-import type { ProductChatMessage } from "./productChatSchema";
+import type { ProductChatMessage } from "./productChatSchema.js";
 
 export const PRODUCT_CHAT_SYSTEM_PROMPT = `You are CareClarity's product support assistant.
 Answer only questions about CareClarity, how to use the app, privacy, uploads, translations, sentence explanations, dashboard results, copy/download, and admin-only safety boundaries.

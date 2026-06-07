@@ -1,4 +1,4 @@
-import type { SupportedTranslationLanguage } from "./translationSchema";
+import type { SupportedTranslationLanguage } from "./translationSchema.js";
 
 export const TRANSLATION_SYSTEM_PROMPT = `You are CareClarity, a healthcare administration translation assistant.
 Translate healthcare administrative letters or CareClarity admin-only output accurately.

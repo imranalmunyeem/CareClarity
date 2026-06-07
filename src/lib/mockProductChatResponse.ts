@@ -1,4 +1,4 @@
-import type { ProductChatResponse } from "./productChatSchema";
+import type { ProductChatResponse } from "./productChatSchema.js";
 
 const PRODUCT_SUPPORT_NOTICE =
   "CareClarity supports healthcare administration only and does not provide medical advice, diagnosis, treatment advice, medication advice, or medication-change instructions.";

@@ -1,6 +1,6 @@
-import { analyzeLetterLocally, type AnalysisResult } from "../lib/analyzer";
-import { getAIClient, getAIModel } from "../lib/aiClient";
-import { buildCareClarityPrompt, CARECLARITY_SYSTEM_PROMPT } from "../lib/aiPrompt";
+import { analyzeLetterLocally, type AnalysisResult } from "../lib/analyzer.js";
+import { getAIClient, getAIModel } from "../lib/aiClient.js";
+import { buildCareClarityPrompt, CARECLARITY_SYSTEM_PROMPT } from "../lib/aiPrompt.js";
 import {
   analysisRequestSchema,
   analysisResponseSchema,
@@ -9,7 +9,7 @@ import {
   type AIAnalysisAttachment,
   type AIAnalysisResponse,
   type SafetyValidation,
-} from "../lib/analysisSchema";
+} from "../lib/analysisSchema.js";
 
 export const NO_STORE_HEADERS = {
   "Cache-Control": "no-store",

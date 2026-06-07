@@ -1,12 +1,12 @@
-import { getAIClient, getAIModel } from "../lib/aiClient";
-import { buildMockTranslationResponse } from "../lib/mockTranslationResponse";
-import { buildTranslationPrompt, TRANSLATION_SYSTEM_PROMPT } from "../lib/translationPrompt";
+import { getAIClient, getAIModel } from "../lib/aiClient.js";
+import { buildMockTranslationResponse } from "../lib/mockTranslationResponse.js";
+import { buildTranslationPrompt, TRANSLATION_SYSTEM_PROMPT } from "../lib/translationPrompt.js";
 import {
   translationRequestSchema,
   translationSchema,
   type TranslationResponse,
-} from "../lib/translationSchema";
-import { NO_STORE_HEADERS, parseRequestBody } from "./analyzeCore";
+} from "../lib/translationSchema.js";
+import { NO_STORE_HEADERS, parseRequestBody } from "./analyzeCore.js";
 
 type TranslateLetterPayloadResult = {
   status: number;

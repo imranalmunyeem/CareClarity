@@ -5,9 +5,9 @@ import type {
   MissingDetailFlagKey,
   SafetyValidation,
   StructuredInformationExtraction,
-} from "./analysisSchema";
+} from "./analysisSchema.js";
 
-export type { MissingDetailFlag, MissingDetailFlagKey } from "./analysisSchema";
+export type { MissingDetailFlag, MissingDetailFlagKey } from "./analysisSchema.js";
 
 export type AnalysisMode = "ai" | "fallback";
 export type Confidence = "high" | "medium" | "low";

@@ -1,4 +1,4 @@
-import { NO_STORE_HEADERS, parseRequestBody, productChatPayload } from "../src/server/productChatCore";
+import { NO_STORE_HEADERS, parseRequestBody, productChatPayload } from "../src/server/productChatCore.js";
 
 type VercelRequest = {
   method?: string;

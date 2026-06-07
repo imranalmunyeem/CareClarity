@@ -2,7 +2,7 @@ import {
   explainSentencePayload,
   NO_STORE_HEADERS,
   parseRequestBody,
-} from "../src/server/explainSentenceCore";
+} from "../src/server/explainSentenceCore.js";
 
 type VercelRequest = {
   method?: string;

@@ -1329,6 +1329,9 @@ function App() {
           )}
         </section>
       </main>
+      <footer className="app-footer" aria-label="CareClarity copyright">
+        <p>Copyright © 2026 Imran Al Munyeem. All rights reserved.</p>
+      </footer>
       <ProductChatWidget
         isOpen={isChatOpen}
         question={chatQuestion}

@@ -69,7 +69,8 @@ button:disabled {
 
 .app-header,
 .safety-banner,
-.workspace-shell {
+.workspace-shell,
+.app-footer {
   width: min(1360px, calc(100% - 32px));
   margin: 0 auto;
 }
@@ -388,6 +389,18 @@ button:focus-visible {
 .text-stat {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.app-footer {
+  margin-top: 18px;
+  padding: 18px 0 26px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.app-footer p {
+  line-height: 1.45;
 }
 
 .trust-block,
@@ -2254,7 +2267,8 @@ button:focus-visible {
   .app-header,
   .safety-banner,
   .accessibility-toolbar,
-  .workspace-shell {
+  .workspace-shell,
+  .app-footer {
     width: min(100% - 20px, 1360px);
   }
 

@@ -1,4 +1,4 @@
-import { analyzePayload, NO_STORE_HEADERS, parseRequestBody } from "../src/server/analyzeCore";
+import { analyzePayload, NO_STORE_HEADERS, parseRequestBody } from "../src/server/analyzeCore.js";
 
 type VercelRequest = {
   method?: string;

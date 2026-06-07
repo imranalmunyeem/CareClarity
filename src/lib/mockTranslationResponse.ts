@@ -1,4 +1,4 @@
-import type { SupportedTranslationLanguage, TranslationResponse } from "./translationSchema";
+import type { SupportedTranslationLanguage, TranslationResponse } from "./translationSchema.js";
 
 export function buildMockTranslationResponse(
   letterText: string,
