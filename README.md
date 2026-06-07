@@ -491,7 +491,7 @@ PhD Researcher in Computer Science, Nottingham Trent University
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-imranalmunyeem-0a66c2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/imranalmunyeem/)
 [![Email](https://img.shields.io/badge/Email-munyeem.swe%40gmail.com-d14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:munyeem.swe@gmail.com)
 
-### Md Abdullah Al Mamun (Market Research and Anakysis)
+### Md Abdullah Al Mamun (Market Research and Analysis)
 
 MSc Cybersecurity student, University of Bedfordshire
 
