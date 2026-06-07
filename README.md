@@ -16,6 +16,10 @@ Full Vercel deployment with frontend and backend API routes:
 
 [https://careclarity-eleven.vercel.app](https://careclarity-eleven.vercel.app)
 
+Product Demo Video:
+
+[https://youtube.com/watch?si=xCWiKVIUy3PgeOde&v=_efARak1bHM&feature=youtu.be](https://youtube.com/watch?si=xCWiKVIUy3PgeOde&v=_efARak1bHM&feature=youtu.be)
+
 Use the Vercel version for the full Z.AI-powered workflow, including letter analysis, translation, sentence explanation and product-support chat.
 
 ## Built At
@@ -491,7 +495,7 @@ PhD Researcher in Computer Science, Nottingham Trent University
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-imranalmunyeem-0a66c2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/imranalmunyeem/)
 [![Email](https://img.shields.io/badge/Email-munyeem.swe%40gmail.com-d14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:munyeem.swe@gmail.com)
 
-### Md Abdullah Al Mamun (Market Research and Anakysis)
+### Md Abdullah Al Mamun (Market Research and Analysis)
 
 MSc Cybersecurity student, University of Bedfordshire
 
