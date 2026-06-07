@@ -50,6 +50,7 @@ import type { ProductChatMessage } from "./lib/productChatSchema";
 import { requestSentenceExplanation } from "./lib/sentenceExplainer";
 import type { ExplainSentenceResponse } from "./lib/sentenceExplainerSchema";
 import { requestLetterTranslation } from "./lib/translator";
+import { buildTranslationInput, hasEnoughTranslationInput } from "./lib/translationSource";
 import {
   SUPPORTED_TRANSLATION_LANGUAGES,
   type SupportedTranslationLanguage,
@@ -261,6 +262,17 @@ function App() {
   const hasUpdatedComparisonInput = Boolean(comparisonUpdatedText.trim().length >= 30 || comparisonUpdatedFiles.length);
   const hasPrescriptionInput = Boolean(prescriptionText.trim() || letterText.trim());
   const hasExportableResult = Boolean(result || translationResult || comparisonResult || prescriptionResult);
+  const translationInput = useMemo(
+    () =>
+      buildTranslationInput({
+        letterText,
+        result,
+        comparisonResult,
+        prescriptionResult,
+      }),
+    [letterText, result, comparisonResult, prescriptionResult],
+  );
+  const hasTranslationInput = hasEnoughTranslationInput(translationInput);
 
   useEffect(() => {
     document.documentElement.lang = getAppLanguageCode(appLanguage);
@@ -293,6 +305,8 @@ function App() {
 
     setIsAnalyzing(true);
     setCopied(false);
+    setTranslationResult(null);
+    setTranslationError("");
     showActionMessage(copy.actions.analyzingNotice);
 
     try {
@@ -423,9 +437,9 @@ function App() {
   }
 
   async function handleTranslateLetter() {
-    const text = letterText.trim();
+    const text = translationInput.trim();
 
-    if (text.length < 30) {
+    if (!hasEnoughTranslationInput(text)) {
       setTranslationError(copy.actions.translationNeedText);
       setTranslationResult(null);
       return;
@@ -460,6 +474,8 @@ function App() {
     setIsComparingLetters(true);
     setComparisonError("");
     setComparisonResult(null);
+    setTranslationResult(null);
+    setTranslationError("");
     setCopied(false);
     showActionMessage(copy.comparison.started);
 
@@ -494,6 +510,8 @@ function App() {
     setPrescriptionError("");
     setComparisonResult(null);
     setResult(null);
+    setTranslationResult(null);
+    setTranslationError("");
     setPrescriptionResult(helperResult);
     setCopied(false);
     showActionMessage(copy.prescription.ready);
@@ -742,11 +760,15 @@ function App() {
           <textarea
             id="letter-text"
             placeholder={copy.uploadPanel.letterPlaceholder}
-            value={letterText}
-            onChange={(event) => setLetterText(event.target.value)}
-            aria-describedby="letter-helper"
-            spellCheck="true"
-          />
+              value={letterText}
+              onChange={(event) => {
+                setLetterText(event.target.value);
+                setTranslationResult(null);
+                setTranslationError("");
+              }}
+              aria-describedby="letter-helper"
+              spellCheck="true"
+            />
           <p id="letter-helper" className="input-helper">{copy.uploadPanel.letterHelper}</p>
 
           <div className="input-footer">
@@ -1107,7 +1129,7 @@ function App() {
                 className="secondary-button translate-button"
                 type="button"
                 onClick={handleTranslateLetter}
-                disabled={isTranslating || letterText.trim().length < 30}
+                disabled={isTranslating || !hasTranslationInput}
             >
               {isTranslating ? <Loader2 className="spin" size={18} /> : <Languages size={18} />}
                 <span>{isTranslating ? copy.translation.translating : copy.translation.translateLetter}</span>
@@ -1117,41 +1139,6 @@ function App() {
               <p className="sentence-error" role="alert">
                 {translationError}
               </p>
-            ) : null}
-            {translationResult ? (
-              <div className="translation-result" aria-live="polite">
-                <header>
-                  <span>{getAppLanguageLabel(translationResult.targetLanguage)}</span>
-                  <strong>{copy.translation.confidenceLabel(translationResult.confidence)}</strong>
-                </header>
-                <section>
-                  <h4>{copy.translation.translatedLetter}</h4>
-                  <p>{translationResult.translatedLetter}</p>
-                </section>
-                <section>
-                  <h4>{copy.translation.importantTerms}</h4>
-                  <ul>
-                    {translationResult.importantTerms.map((term) => (
-                      <li key={`${term.originalTerm}-${term.translatedOrExplainedMeaning}`}>
-                        <strong>{term.originalTerm}</strong>
-                        <span>{term.translatedOrExplainedMeaning}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-                <section>
-                  <h4>{copy.translation.translationNotes}</h4>
-                  <ul>
-                    {translationResult.translationNotes.map((note) => (
-                      <li key={note}>{note}</li>
-                    ))}
-                  </ul>
-                </section>
-                <p className="translation-safety">
-                  <ShieldCheck size={16} aria-hidden="true" />
-                  <span>{translationResult.safetyNotice}</span>
-                </p>
-              </div>
             ) : null}
           </section>
 
@@ -1276,6 +1263,8 @@ function App() {
                   ? copy.prescription.resultHeading
                   : comparisonResult
                     ? copy.comparison.resultHeading
+                    : translationResult && !result
+                      ? copy.translation.heading
                     : copy.results.heading}
               </h2>
               <p>
@@ -1300,13 +1289,19 @@ function App() {
           </div>
 
           {prescriptionResult ? (
-            <PrescriptionAdminDashboard result={prescriptionResult} copy={copy.prescription} />
+            <>
+              <PrescriptionAdminDashboard result={prescriptionResult} copy={copy.prescription} />
+              {translationResult ? <TranslationResultPanel result={translationResult} copy={copy.translation} /> : null}
+            </>
           ) : comparisonResult ? (
-            <LetterComparisonDashboard
-              comparison={comparisonResult}
-              copy={copy.comparison}
-              dashboardCopy={copy.dashboard}
-            />
+            <>
+              <LetterComparisonDashboard
+                comparison={comparisonResult}
+                copy={copy.comparison}
+                dashboardCopy={copy.dashboard}
+              />
+              {translationResult ? <TranslationResultPanel result={translationResult} copy={copy.translation} /> : null}
+            </>
           ) : result ? (
             <>
               <ResultNotice result={result} copy={copy.results} />
@@ -1317,7 +1312,10 @@ function App() {
                 onDownloadCarerTxt={handleDownloadCarerTxt}
                 onDownloadCarerPdf={handleDownloadCarerPdf}
               />
+              {translationResult ? <TranslationResultPanel result={translationResult} copy={copy.translation} /> : null}
             </>
+          ) : translationResult ? (
+            <TranslationResultPanel result={translationResult} copy={copy.translation} />
           ) : isAnalyzing || isComparingLetters ? (
             <div className="empty-state loading" aria-live="polite">
               <Loader2 className="spin" size={42} />
@@ -1380,6 +1378,50 @@ function ResultNotice({ result, copy }: { result: AnalysisResult; copy: AppCopy[
         {copy.fallbackNotice} {copy.fallbackTail}
       </span>
     </div>
+  );
+}
+
+function TranslationResultPanel({
+  result,
+  copy,
+}: {
+  result: TranslationResponse;
+  copy: AppCopy["translation"];
+}) {
+  return (
+    <section className="translation-result output-translation-card" aria-live="polite">
+      <header>
+        <span>{getAppLanguageLabel(result.targetLanguage)}</span>
+        <strong>{copy.confidenceLabel(result.confidence)}</strong>
+      </header>
+      <section>
+        <h4>{copy.translatedLetter}</h4>
+        <p>{result.translatedLetter}</p>
+      </section>
+      <section>
+        <h4>{copy.importantTerms}</h4>
+        <ul>
+          {result.importantTerms.map((term) => (
+            <li key={`${term.originalTerm}-${term.translatedOrExplainedMeaning}`}>
+              <strong>{term.originalTerm}</strong>
+              <span>{term.translatedOrExplainedMeaning}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section>
+        <h4>{copy.translationNotes}</h4>
+        <ul>
+          {result.translationNotes.map((note) => (
+            <li key={note}>{note}</li>
+          ))}
+        </ul>
+      </section>
+      <p className="translation-safety">
+        <ShieldCheck size={16} aria-hidden="true" />
+        <span>{result.safetyNotice}</span>
+      </p>
+    </section>
   );
 }
 

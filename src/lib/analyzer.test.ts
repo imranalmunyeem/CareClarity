@@ -27,6 +27,7 @@ import {
   translationSchema,
   type TranslationResponse,
 } from "./translationSchema";
+import { buildTranslationInput, hasEnoughTranslationInput } from "./translationSource";
 
 describe("CareClarity safety flow", () => {
   it("keeps prescription paperwork in an admin-only safety boundary", () => {
@@ -216,6 +217,21 @@ This letter is about appointment admin only.`;
     expect(() => translationSchema.parse(response)).not.toThrow();
     expect(response.targetLanguage).toBe("Urdu");
     expect(response.safetyNotice).toContain("does not provide medical advice");
+  });
+
+  it("builds translation input from generated output when available", () => {
+    const result = analyzeLetterLocally(sampleLetters[0].text);
+    const source = buildTranslationInput({
+      letterText: "",
+      result,
+      comparisonResult: null,
+      prescriptionResult: null,
+    });
+
+    expect(hasEnoughTranslationInput(source)).toBe(true);
+    expect(source).toContain("CareClarity admin summary");
+    expect(source).toContain("Patient dashboard summary");
+    expect(source).toContain("Action checklist");
   });
 
   it("rejects unsupported translation languages", () => {

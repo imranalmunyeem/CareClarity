@@ -590,6 +590,10 @@ button:focus-visible {
   background: #fbfefd;
 }
 
+.output-translation-card {
+  margin-top: 0;
+}
+
 .translation-result header {
   display: flex;
   align-items: center;
