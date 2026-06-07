@@ -18,7 +18,7 @@ Full Vercel deployment with frontend and backend API routes:
 
 Product Demo Video:
 
-[youtube.com/watch?si=xCWiKVIUy3PgeOde&v=_efARak1bHM&feature=youtu.be](youtube.com/watch?si=xCWiKVIUy3PgeOde&v=_efARak1bHM&feature=youtu.be)
+[https://youtube.com/watch?si=xCWiKVIUy3PgeOde&v=_efARak1bHM&feature=youtu.be](https://youtube.com/watch?si=xCWiKVIUy3PgeOde&v=_efARak1bHM&feature=youtu.be)
 
 Use the Vercel version for the full Z.AI-powered workflow, including letter analysis, translation, sentence explanation and product-support chat.
 
