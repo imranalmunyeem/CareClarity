@@ -12,5 +12,6 @@ yarn-error.log*
 dev-*.log
 research-data/
 CareClarity_UK_Nurse_Review_Responses_*.csv
+Paper/
 
 .vercel
