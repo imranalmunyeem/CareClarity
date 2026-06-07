@@ -319,6 +319,56 @@ npm run test
 npm run build
 ```
 
+## Host On Vercel
+
+Vercel is the recommended free hosting option for the full CareClarity demo because it can serve the Vite frontend and run the backend `/api/*` functions that call Z.AI securely.
+
+This repo includes:
+
+- `vercel.json` for Vite build settings, SPA routing and security headers
+- `api/analyze.ts`
+- `api/analyse-letter.ts`
+- `api/translate-letter.ts`
+- `api/explain-sentence.ts`
+- `api/product-chat.ts`
+
+### Vercel Project Settings
+
+Use these settings if Vercel does not auto-detect them:
+
+| Setting | Value |
+| --- | --- |
+| Framework Preset | Vite |
+| Build Command | `npm run build` |
+| Output Directory | `dist` |
+| Install Command | `npm ci` |
+| Root Directory | project root |
+
+### Required Environment Variables
+
+Add these in **Vercel Project Settings** -> **Environment Variables** for Production, Preview and Development as needed:
+
+```text
+ZAI_API_KEY=your_private_zai_key
+ZAI_BASE_URL=https://api.z.ai/api/paas/v4/
+ZAI_MODEL=glm-5.1
+```
+
+Do not add these as `VITE_` variables. `ZAI_API_KEY` must stay server-side only.
+
+### Vercel Deployment Steps
+
+1. Push this repository to GitHub.
+2. Go to [vercel.com](https://vercel.com/) and sign in with GitHub.
+3. Click **Add New** -> **Project**.
+4. Import `imranalmunyeem/CareClarity`.
+5. Confirm the Vite settings above.
+6. Add the Z.AI environment variables before deploying.
+7. Click **Deploy**.
+8. After deployment, open the live Vercel URL and test letter analysis, translation, sentence explanation and product chat.
+
+Every push to the selected production branch can create a new Vercel deployment automatically.
+
 ## Host On GitHub Pages
 
 This repo is configured for GitHub Pages deployment with GitHub Actions.
