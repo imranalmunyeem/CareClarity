@@ -10,6 +10,14 @@ CareClarity does not provide diagnosis, treatment advice, prescribing advice or 
 ![Vite](https://img.shields.io/badge/Build-Vite-646cff?style=for-the-badge&logo=vite&logoColor=white)
 ![Safety First](https://img.shields.io/badge/Boundary-Admin%20Only-0f766e?style=for-the-badge)
 
+## Live Product
+
+Full Vercel deployment with frontend and backend API routes:
+
+[https://careclarity-eleven.vercel.app](https://careclarity-eleven.vercel.app)
+
+Use the Vercel version for the full Z.AI-powered workflow, including letter analysis, translation, sentence explanation and product-support chat.
+
 ## Built At
 
 CareClarity was built by team **Eleven** at **Vibehack London 2026**.
@@ -288,14 +296,68 @@ api/                       Deployment API entrypoints
 
 ## Run Locally
 
+### Prerequisites
+
+- Node.js `^20.19.0` or `>=22.12.0`
+- npm
+- A private Z.AI API key for live AI responses
+
+The app can still run without a Z.AI key, but AI routes will use safe fallback responses.
+
+### Setup Steps
+
+1. Clone the repository.
+
+```powershell
+git clone https://github.com/imranalmunyeem/CareClarity.git
+cd CareClarity
+```
+
+2. Install dependencies.
+
 ```powershell
 npm install
-Copy-Item .env.example .env.local
-# Add your ZAI_API_KEY in .env.local
+```
+
+3. Create a local environment file in the project root.
+
+PowerShell:
+
+```powershell
+New-Item -ItemType File -Path .env.local -Force
+notepad .env.local
+```
+
+macOS/Linux terminal:
+
+```bash
+touch .env.local
+nano .env.local
+```
+
+Add these values:
+
+```text
+ZAI_API_KEY=replace_with_your_private_zai_key
+ZAI_BASE_URL=https://api.z.ai/api/paas/v4/
+ZAI_MODEL=glm-5.1
+```
+
+Do not prefix these variables with `VITE_`, and do not commit `.env.local`.
+
+4. Start the local development server.
+
+```powershell
 npm run dev
 ```
 
-Open the local URL printed by Vite.
+5. Open the local URL printed by Vite, usually:
+
+[http://localhost:5173](http://localhost:5173)
+
+If that port is busy, Vite may use another port such as `5174`.
+
+Local API routes are available through the Vite dev server, including `/api/analyze`, `/api/analyse-letter`, `/api/translate-letter`, `/api/explain-sentence` and `/api/product-chat`.
 
 ## Environment Variables
 
@@ -322,6 +384,10 @@ npm run build
 ## Host On Vercel
 
 Vercel is the recommended free hosting option for the full CareClarity demo because it can serve the Vite frontend and run the backend `/api/*` functions that call Z.AI securely.
+
+Current live deployment:
+
+[https://careclarity-eleven.vercel.app](https://careclarity-eleven.vercel.app)
 
 This repo includes:
 
@@ -365,7 +431,7 @@ Do not add these as `VITE_` variables. `ZAI_API_KEY` must stay server-side only.
 5. Confirm the Vite settings above.
 6. Add the Z.AI environment variables before deploying.
 7. Click **Deploy**.
-8. After deployment, open the live Vercel URL and test letter analysis, translation, sentence explanation and product chat.
+8. After deployment, open [https://careclarity-eleven.vercel.app](https://careclarity-eleven.vercel.app) and test letter analysis, translation, sentence explanation and product chat.
 
 Every push to the selected production branch can create a new Vercel deployment automatically.
 
@@ -397,7 +463,7 @@ On GitHub Pages:
 - translation, sentence explanation and product chat use safe fallback behavior if the backend API is unavailable
 - live Z.AI-powered API calls require a serverless/backend host such as Vercel, Netlify, Render or a separate API service
 
-Use GitHub Pages for a public frontend demo. Use a serverless host for the full Z.AI-powered product.
+Use GitHub Pages for a public frontend demo. Use [https://careclarity-eleven.vercel.app](https://careclarity-eleven.vercel.app) for the full Z.AI-powered product.
 
 ## Demo Guidance
 
