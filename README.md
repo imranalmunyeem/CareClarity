@@ -482,7 +482,7 @@ Suggested demo flow:
 
 ## Developed By
 
-### Imran Al Munyeem
+### Imran Al Munyeem (Lead Developer)
 
 PhD Researcher in Computer Science, Nottingham Trent University
 
@@ -491,17 +491,16 @@ PhD Researcher in Computer Science, Nottingham Trent University
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-imranalmunyeem-0a66c2?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/imranalmunyeem/)
 [![Email](https://img.shields.io/badge/Email-munyeem.swe%40gmail.com-d14836?style=for-the-badge&logo=gmail&logoColor=white)](mailto:munyeem.swe@gmail.com)
 
-### Md Abdullah Al Mamun
+### Md Abdullah Al Mamun (Market Research and Anakysis)
 
 MSc Cybersecurity student, University of Bedfordshire
 
 [![Website](https://img.shields.io/badge/Website-almamun.tech-111827?style=for-the-badge&logo=internetarchive&logoColor=white)](https://almamun.tech)
 
-### Rudrasinh Parmar (Zoro)
+### Rudrasinh Parmar (UI UX, Product Demo, Advertising)
 
 MSc Computer Science student, University of Bedfordshire
 
-Role: Frontend development
 
 ## Team
 
